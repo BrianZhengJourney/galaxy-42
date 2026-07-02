@@ -18,6 +18,8 @@ import { SOL_SYSTEM } from './data/solData.js';
 import { STAR_CATALOG } from './data/starCatalog.js';
 import { generateSystem } from './procgen/system.js';
 import { Journal } from './core/journal.js';
+import { TourEngine } from './core/tour.js';
+import { TOURS } from './data/tours.js';
 
 const ORIGIN = new THREE.Vector3();
 
@@ -53,6 +55,8 @@ class App {
     this.transferOrigin = null;
     this.journal = new Journal();
     this.hud.buildCatalog(STAR_CATALOG, rec => this.enterSystem(rec, true), this.journal);
+    this.tours = new TourEngine(this);
+    this._wireTourMenu();
     this.hud.syncTimeButtons(this.time.rate);
 
     this.input = new Input(this.renderer.domElement, {
@@ -121,6 +125,52 @@ class App {
         if (orbit && canDescend(body)) this.enterSurface(body);
       }
     }
+  }
+
+  /* ================= tours ================= */
+
+  _wireTourMenu(){
+    const menu = document.getElementById('tourMenu');
+    for (const tour of TOURS){
+      const item = document.createElement('div');
+      item.className = 'tour-item';
+      item.innerHTML = '<div class="tn">' + tour.name + '</div>' +
+                       '<div class="td">' + tour.desc + '</div>';
+      item.addEventListener('click', () => {
+        menu.classList.remove('show');
+        this.tours.start(tour);
+      });
+      menu.appendChild(item);
+    }
+    document.getElementById('tourBtn').addEventListener('click', e => {
+      e.stopPropagation();
+      menu.classList.toggle('show');
+    });
+    window.addEventListener('click', () => menu.classList.remove('show'));
+  }
+
+  /* navigation helpers used by tour steps */
+  goHome(){
+    const sol = STAR_CATALOG[0];
+    if (!this.systemRec || this.systemRec.name !== 'SOL' || this.mode === 'galaxy')
+      this.enterSystem(sol, true);
+    else if (this.mode === 'surface') this.exitSurface();
+    else this.systemOverview();
+  }
+  tourJump(starName){
+    const entry = this.galaxyView.findStar(starName);
+    if (entry) this.enterSystem(entry.rec, true);
+  }
+  tourFocus(bodyName){
+    if (this.mode === 'surface') this.exitSurface();
+    if (this.mode !== 'system') return;
+    const body = this.systemView.findBody(bodyName);
+    if (body) this.focusPlanet(body);
+  }
+  tourDescend(bodyName){
+    this.tourFocus(bodyName);
+    const body = this.systemView && this.systemView.findBody(bodyName);
+    if (body) this.enterSurface(body);
   }
 
   /* ================= scale transitions ================= */
