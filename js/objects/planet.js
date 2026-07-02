@@ -61,12 +61,14 @@ export class Planet {
     this.group.add(this.pick);
   }
 
-  update(simDays){
+  /* pure orbital position — mission planning samples this at arbitrary times */
+  positionAt(simDays, out){
     const b = this.cfg;
     if (b.eph){
       // real JPL elements: true heliocentric direction for the current date
-      displayPosition(b.eph, julianDate(J2000_EPOCH_MS, simDays), b.dist, this.group.position);
-    } else if (b.kepler){
+      return displayPosition(b.eph, julianDate(J2000_EPOCH_MS, simDays), b.dist, out);
+    }
+    if (b.kepler){
       // eccentric Kepler orbit (S-cluster stars around Sgr A*)
       const K = b.kepler;
       const M = (K.phase + 2 * Math.PI * simDays / K.period) % (2 * Math.PI);
@@ -78,11 +80,15 @@ export class Planet {
       const cn = Math.cos(K.node), sn = Math.sin(K.node);
       const xr = x * cn - z * sn, zr = x * sn + z * cn;
       const ci = Math.cos(K.incl), si = Math.sin(K.incl);
-      this.group.position.set(xr, -zr * si, zr * ci);
-    } else {
-      const ang = b.phase + 2 * Math.PI * simDays / b.period;
-      this.group.position.set(Math.cos(ang) * b.dist, 0, Math.sin(ang) * b.dist);
+      return out.set(xr, -zr * si, zr * ci);
     }
+    const ang = b.phase + 2 * Math.PI * simDays / b.period;
+    return out.set(Math.cos(ang) * b.dist, 0, Math.sin(ang) * b.dist);
+  }
+
+  update(simDays){
+    const b = this.cfg;
+    this.positionAt(simDays, this.group.position);
     this.mesh.rotation.y = 2 * Math.PI * simDays / b.rotP;   // sign ⇒ retrograde
     for (const m of this.moons){
       const ma = m.phase + 2 * Math.PI * simDays / m.period;

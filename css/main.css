@@ -147,6 +147,27 @@ canvas{ display:block; }
 }
 #mapFrame.hidden{ display:none; }
 
+/* ---- mission panel ---- */
+#mission{
+  position:fixed; right:300px; bottom:118px; z-index:9; width:236px;
+  background:var(--panel-bg); border:1px solid var(--line);
+  border-left:2px solid var(--cyan);
+  backdrop-filter:blur(6px); box-shadow:0 0 30px rgba(0,10,20,.6);
+  display:none;
+}
+#mission.show{ display:block; }
+#msBody{ padding:8px 14px 12px; font-family:var(--mono); font-size:10px;
+  letter-spacing:.12em; line-height:2; color:var(--text); }
+#msBody b{ font-weight:400; color:var(--cyan); }
+#msBody .st{ color:var(--amber); }
+#msBody .cancel{
+  margin-top:6px; padding:5px 0; text-align:center; cursor:pointer;
+  font-size:9px; letter-spacing:.26em; color:rgba(255,138,106,.8);
+  border:1px solid rgba(255,138,106,.35); transition:all .2s;
+}
+#msBody .cancel:hover{ background:rgba(255,138,106,.1); }
+#msBody .hint{ color:var(--amber); }
+
 /* ---- event horizon panel ---- */
 #events{
   position:fixed; right:32px; bottom:118px; z-index:9; width:250px;

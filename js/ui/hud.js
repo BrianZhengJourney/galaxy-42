@@ -29,11 +29,12 @@ export class Hud {
       row.appendChild(ks); row.appendChild(vs); rows.appendChild(row);
       this._tickInto(vs, v);
     }
-    if (action){
+    const acts = Array.isArray(action) ? action : (action ? [action] : []);
+    for (const a of acts){
       const btn = document.createElement('div');
       btn.className = 'p-action';
-      btn.textContent = action.label;
-      btn.addEventListener('click', action.cb);
+      btn.textContent = a.label;
+      btn.addEventListener('click', a.cb);
       rows.appendChild(btn);
     }
     $('panel').classList.add('show');
@@ -92,6 +93,8 @@ export class Hud {
 
   setSector(name){ $('roSector').textContent = name; }
   setEventsVisible(on){ $('events').classList.toggle('show', on); }
+  setMissionVisible(on){ $('mission').classList.toggle('show', on); }
+  setMissionBody(html){ $('msBody').innerHTML = html; }
 
   renderEvents(events, fmtDateAt, onJump){
     const list = $('evList');

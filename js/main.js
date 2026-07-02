@@ -11,6 +11,7 @@ import { Input } from './core/input.js';
 import { SystemView } from './scenes/systemView.js';
 import { GalaxyView } from './scenes/galaxyView.js';
 import { SurfaceView, canDescend } from './scenes/surfaceView.js';
+import { planMission, probePosition, missionState, buildMissionVisuals } from './core/mission.js';
 import { LabelManager } from './ui/labels.js';
 import { Hud } from './ui/hud.js';
 import { SOL_SYSTEM } from './data/solData.js';
@@ -47,6 +48,8 @@ class App {
     this.galaxyFocus = null;    // galaxy mode: catalog entry awaiting jump
     this.hovered = null;
 
+    this.mission = null;
+    this.transferOrigin = null;
     this.hud.buildCatalog(STAR_CATALOG, rec => this.enterSystem(rec, true));
     this.hud.syncTimeButtons(this.time.rate);
 
@@ -121,6 +124,7 @@ class App {
   /* ================= scale transitions ================= */
 
   _buildSystem(rec){
+    this.cancelMission();
     if (this.surfaceView){ this.surfaceView.dispose(); this.surfaceView = null; }
     if (this.systemView) this.systemView.dispose();
     this.labels.clear();
@@ -174,6 +178,7 @@ class App {
     if (this.mode === 'galaxy') return;
     this.hud.flash();
     const rec = this.systemRec;
+    this.cancelMission();
     if (this.surfaceView){ this.surfaceView.dispose(); this.surfaceView = null; }
     if (this.systemView){ this.systemView.dispose(); this.systemView = null; }
     this.labels.clear();
@@ -217,10 +222,66 @@ class App {
     this.focus = p;
     this.rig.minDist = p.r * 2.2;
     this.rig.flyTo({ getTarget: () => p.group.position, dist: p.cfg.view, dur: 1.25 });
-    const action = canDescend(p)
-      ? { label: '▸ ENTER LOW ORBIT', cb: () => this.enterSurface(p) } : undefined;
-    this.hud.showPanel('TARGET LOCK', p.name, p.cfg.cls, p.cfg.info, action);
+    const actions = [];
+    if (canDescend(p))
+      actions.push({ label: '▸ ENTER LOW ORBIT', cb: () => this.enterSurface(p) });
+    if (!this.mission && this.systemView.planets.length > 1)
+      actions.push({ label: '▸ PLOT TRANSFER FROM HERE', cb: () => this._armTransfer(p) });
+    this.hud.showPanel('TARGET LOCK', p.name, p.cfg.cls, p.cfg.info, actions);
     this._crumbs();
+  }
+
+  /* ---- mission planning: probe on a Hohmann-style transfer ---- */
+  _armTransfer(origin){
+    this.transferOrigin = origin;
+    this.hud.setMissionVisible(true);
+    this.hud.setMissionBody(
+      '<span class="hint">SELECT DESTINATION —<br>CLICK ANOTHER PLANET</span>');
+  }
+
+  _launchMission(origin, dest){
+    const m = planMission(origin, dest, this.time.simDays);
+    this.transferOrigin = null;
+    if (!m){
+      this.hud.setMissionBody('<span class="hint">NO LAUNCH WINDOW FOUND</span>');
+      setTimeout(() => { if (!this.mission) this.hud.setMissionVisible(false); }, 2500);
+      return;
+    }
+    this.mission = m;
+    this.mission.visuals = buildMissionVisuals(m);
+    this.systemView.scene.add(m.visuals.arc, m.visuals.probe);
+    this._updateMissionPanel(true);
+  }
+
+  cancelMission(){
+    if (this.mission && this.systemView && this.mission.visuals){
+      this.systemView.scene.remove(this.mission.visuals.arc, this.mission.visuals.probe);
+      this.mission.visuals.arc.geometry.dispose();
+    }
+    this.mission = null;
+    this.transferOrigin = null;
+    this.hud.setMissionVisible(false);
+  }
+
+  _updateMissionPanel(rebuild){
+    const m = this.mission;
+    if (!m) return;
+    const st = missionState(m, this.time.simDays);
+    if (rebuild || st !== m._lastState){
+      m._lastState = st;
+      const short = n => n.startsWith(this.systemRec.name)
+        ? n.slice(this.systemRec.name.length).trim() : n;
+      this.hud.setMissionBody(
+        short(m.origin.name) + ' ▸ <b>' + short(m.dest.name) + '</b><br>' +
+        'LAUNCH <b>' + this.time.fmtDateAt(m.tl) + '</b><br>' +
+        'TRANSIT <b>' + (m.Tt >= 365 ? (m.Tt / 365.25).toFixed(1) + ' yr' : m.Tt.toFixed(0) + ' d') + '</b><br>' +
+        'ARRIVAL <b>' + this.time.fmtDateAt(m.arrival) + '</b><br>' +
+        'STATUS <span class="st">' + st + '</span>' +
+        '<div class="cancel">ABORT MISSION</div>');
+      this.hud.setMissionVisible(true);
+      const btn = document.querySelector('#msBody .cancel');
+      if (btn) btn.addEventListener('click', () => this.cancelMission());
+    }
   }
 
   /* ---- third scale: low orbit around a solid world ---- */
@@ -302,6 +363,13 @@ class App {
     if (this.mode === 'surface') return;
     const hit = this._raycast(x, y);
     if (this.mode === 'system'){
+      // armed transfer: the next planet clicked becomes the destination
+      if (this.transferOrigin && hit && !hit.isStar && hit !== this.transferOrigin)
+        return this._launchMission(this.transferOrigin, hit);
+      if (this.transferOrigin && !hit){
+        this.transferOrigin = null;
+        if (!this.mission) this.hud.setMissionVisible(false);
+      }
       if (!hit) return this.systemOverview();
       if (hit.isStar) return this.focusStar();
       return this.focusPlanet(hit);
@@ -402,6 +470,12 @@ class App {
       if (this._evTick % 90 === 0 && this._events && this._events.length &&
           this.time.simDays > this._events[0].t + 0.5)
         this._computeEvents();
+
+      // active mission: move the probe, keep the panel status live
+      if (this.mission){
+        probePosition(this.mission, this.time.simDays, this.mission.visuals.probe.position);
+        if (this._evTick % 15 === 0) this._updateMissionPanel(false);
+      }
 
       R.setViewport(0, 0, this.W, this.H);
       R.setScissorTest(false);
