@@ -119,6 +119,8 @@ canvas{ display:block; }
 .cat-item .n{ font-family:var(--mono); font-size:10px; letter-spacing:.14em; color:var(--text); }
 .cat-item:hover .n{ color:var(--cyan); }
 .cat-item .c{ font-family:var(--mono); font-size:9px; color:rgba(207,238,247,.4); }
+.cat-item.unk .n{ color:rgba(207,238,247,.35); }
+.cat-item.unk .c{ color:rgba(255,180,94,.35); letter-spacing:.2em; }
 
 /* ---- hover tag + 3D labels ---- */
 #hoverTag{

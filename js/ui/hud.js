@@ -120,17 +120,23 @@ export class Hud {
   setMinimapVisible(on){ $('mapFrame').classList.toggle('hidden', !on); }
   setCatalogVisible(on){ $('catalog').classList.toggle('show', on); }
 
-  buildCatalog(entries, onPick){
+  buildCatalog(entries, onPick, journal){
     const list = $('catList');
     list.innerHTML = '';
     for (const rec of entries){
+      const known = !journal || journal.isVisited(rec.name);
       const item = document.createElement('div');
-      item.className = 'cat-item';
+      item.className = 'cat-item' + (known ? '' : ' unk');
       const n = document.createElement('span'); n.className = 'n'; n.textContent = rec.name;
-      const c = document.createElement('span'); c.className = 'c'; c.textContent = rec.cls;
+      const c = document.createElement('span'); c.className = 'c';
+      c.textContent = known ? rec.cls : 'UNSURVEYED';
       item.appendChild(n); item.appendChild(c);
       item.addEventListener('click', () => onPick(rec));
       list.appendChild(item);
+    }
+    if (journal){
+      const title = document.querySelector('#catalog .cat-title');
+      title.textContent = 'STELLAR CATALOG · ' + journal.surveyed() + '/' + entries.length + ' SURVEYED';
     }
   }
 

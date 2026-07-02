@@ -17,6 +17,7 @@ import { Hud } from './ui/hud.js';
 import { SOL_SYSTEM } from './data/solData.js';
 import { STAR_CATALOG } from './data/starCatalog.js';
 import { generateSystem } from './procgen/system.js';
+import { Journal } from './core/journal.js';
 
 const ORIGIN = new THREE.Vector3();
 
@@ -50,7 +51,8 @@ class App {
 
     this.mission = null;
     this.transferOrigin = null;
-    this.hud.buildCatalog(STAR_CATALOG, rec => this.enterSystem(rec, true));
+    this.journal = new Journal();
+    this.hud.buildCatalog(STAR_CATALOG, rec => this.enterSystem(rec, true), this.journal);
     this.hud.syncTimeButtons(this.time.rate);
 
     this.input = new Input(this.renderer.domElement, {
@@ -131,6 +133,8 @@ class App {
     const def = rec.sol ? SOL_SYSTEM : generateSystem(rec);
     this.systemView = new SystemView(def, this.labels);
     this.systemRec = rec;
+    this.journal.markVisited(rec.name, this.time.fmtDate());
+    this.hud.buildCatalog(STAR_CATALOG, r => this.enterSystem(r, true), this.journal);
     this.mode = 'system';
     this.focus = null;
     this.galaxyFocus = null;
@@ -390,10 +394,17 @@ class App {
       getTarget: () => this.galaxyView.starWorldPos(hit, v),
       dist: 30, dur: 1.1
     });
-    const info = Object.assign({}, hit.rec.sol
-      ? { 'SPECTRAL CLASS': 'G2V', 'STATUS': 'HOME SYSTEM' }
-      : {}, this._starInfo(hit.rec), { '▸ ACTION': 'CLICK AGAIN TO JUMP' });
-    this.hud.showPanel('STELLAR CONTACT', hit.name, hit.rec.cls, info);
+    // fog of war: survey data only exists for systems you've entered
+    const surveyed = this.journal.isVisited(hit.name);
+    const info = surveyed
+      ? Object.assign({}, hit.rec.sol ? { 'STATUS': 'HOME SYSTEM' } : {},
+          this._starInfo(hit.rec),
+          { 'SURVEYS': String(this.journal.visitCount(hit.name)),
+            '▸ ACTION': 'CLICK AGAIN TO JUMP' })
+      : { 'STATUS': 'UNSURVEYED', 'TELEMETRY': 'NO DATA',
+          '▸ ACTION': 'CLICK AGAIN TO SCAN' };
+    this.hud.showPanel('STELLAR CONTACT', hit.name,
+      surveyed ? hit.rec.cls : 'UNKNOWN CLASS', info);
   }
 
   _starInfo(rec){
