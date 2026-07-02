@@ -68,6 +68,9 @@ class App {
     });
     window.addEventListener('resize', () => this._onResize());
 
+    this.composer = null;
+    this._initBloom();                           // async; falls back to sprite glow
+
     this._settingHash = false;
     const initialHash = location.hash;           // _buildSystem rewrites the URL — save it
     this._buildSystem(STAR_CATALOG[0]);          // start at home: SOL
@@ -124,6 +127,42 @@ class App {
         this.focusPlanet(body);
         if (orbit && canDescend(body)) this.enterSurface(body);
       }
+    }
+  }
+
+  /* ---- optional post-processing bloom; sprite glow is the fallback ---- */
+  async _initBloom(){
+    try{
+      const [{ EffectComposer }, { RenderPass }, { UnrealBloomPass }, { OutputPass }] =
+        await Promise.all([
+          import('three/addons/postprocessing/EffectComposer.js'),
+          import('three/addons/postprocessing/RenderPass.js'),
+          import('three/addons/postprocessing/UnrealBloomPass.js'),
+          import('three/addons/postprocessing/OutputPass.js')
+        ]);
+      const composer = new EffectComposer(this.renderer);
+      this._renderPass = new RenderPass(this.systemView.scene, this.camera);
+      composer.addPass(this._renderPass);
+      composer.addPass(new UnrealBloomPass(
+        new THREE.Vector2(this.W, this.H), 0.45, 0.55, 0.62));
+      composer.addPass(new OutputPass());
+      this.composer = composer;
+    }catch(e){
+      console.warn('bloom unavailable, using sprite glow only:', e && e.message);
+      this.composer = null;
+    }
+  }
+
+  _renderMain(scene){
+    if (this.composer){
+      this.renderer.setViewport(0, 0, this.W, this.H);
+      this.renderer.setScissorTest(false);
+      this._renderPass.scene = scene;
+      this.composer.render();
+    } else {
+      this.renderer.setViewport(0, 0, this.W, this.H);
+      this.renderer.setScissorTest(false);
+      this.renderer.render(scene, this.camera);
     }
   }
 
@@ -519,9 +558,7 @@ class App {
     const R = this.renderer;
     if (this.mode === 'surface'){
       this.surfaceView.update(dt, this.time.simDays);
-      R.setViewport(0, 0, this.W, this.H);
-      R.setScissorTest(false);
-      R.render(this.surfaceView.scene, this.camera);
+      this._renderMain(this.surfaceView.scene);
     } else if (this.mode === 'system'){
       this.systemView.update(dt, this.time.simDays, this.now);
       this.labels.update(this.camera, this.W, this.H);
@@ -538,9 +575,7 @@ class App {
         if (this._evTick % 15 === 0) this._updateMissionPanel(false);
       }
 
-      R.setViewport(0, 0, this.W, this.H);
-      R.setScissorTest(false);
-      R.render(this.systemView.scene, this.camera);
+      this._renderMain(this.systemView.scene);
 
       // minimap via scissor (matches #mapFrame CSS)
       const ms = 170, mx = 21, my = 119;
@@ -553,9 +588,7 @@ class App {
     } else {
       this.galaxyView.update(dt);
       this.labels.update(this.camera, this.W, this.H);
-      R.setViewport(0, 0, this.W, this.H);
-      R.setScissorTest(false);
-      R.render(this.galaxyView.scene, this.camera);
+      this._renderMain(this.galaxyView.scene);
     }
 
     this.hud.updateReadouts(this.time);
@@ -566,6 +599,7 @@ class App {
     this.camera.aspect = this.W / this.H;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(this.W, this.H);
+    if (this.composer) this.composer.setSize(this.W, this.H);
   }
 }
 

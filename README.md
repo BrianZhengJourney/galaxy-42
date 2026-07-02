@@ -131,7 +131,7 @@ Run the tests with `npm test` (plain `node --test`, no dependencies).
   its system exactly.
 - **Graceful failure.** No WebGL, no CDN, no import-map support — each path
   lands on a readable "RENDER LINK FAILURE" panel instead of a black screen.
-  Glow is done with additive sprites rather than post-processing bloom, so
-  there is nothing to degrade.
+  Post-processing bloom (UnrealBloomPass) loads as an optional enhancement;
+  if the addons import fails, the additive-sprite glow pipeline stands alone.
 - **Lifecycle.** Each `SystemView` owns its scene and disposes geometry,
   materials and textures on exit; the galaxy scene is built once and kept.
