@@ -33,10 +33,8 @@ export class SystemView {
       this.scene.add(p.group);
       this.planets.push(p);
       this.pickTargets.push(p.pick);
-      labelManager.add(p.name, out => out.copy(p.group.position).setY(p.r + 0.6 + out.y),
-        { fadeDist: systemDef.extent * 2.2 });
-      p.labelEntry = labelManager.entries[labelManager.entries.length - 1];
     }
+    this.registerLabels();
 
     this.belt = systemDef.belt ? new AsteroidBelt(systemDef.belt) : null;
     if (this.belt) this.scene.add(this.belt.points);
@@ -50,6 +48,17 @@ export class SystemView {
     this.mapCam.position.set(0, 200, 0);
     this.mapCam.up.set(0, 0, -1);
     this.mapCam.lookAt(0, 0, 0);
+  }
+
+  /* labels live in a shared manager — re-register after another view used it */
+  registerLabels(){
+    for (const p of this.planets){
+      p.labelEntry = this.labels.add(p.name, out => {
+        out.copy(p.group.position);
+        out.y += p.r + 0.6;
+        return out;
+      }, { fadeDist: this.def.extent * 2.2 });
+    }
   }
 
   overviewDist(){ return this.def.extent * 1.45; }

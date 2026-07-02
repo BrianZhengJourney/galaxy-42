@@ -90,6 +90,14 @@ canvas{ display:block; }
 .prow .v{ font-family:var(--mono); font-size:12px; letter-spacing:.05em;
   color:#eafaff; text-shadow:0 0 8px rgba(98,230,255,.35); text-align:right; }
 
+.p-action{
+  margin-top:12px; padding:7px 0; text-align:center; cursor:pointer;
+  font-family:var(--mono); font-size:10px; letter-spacing:.26em;
+  color:var(--amber); border:1px solid rgba(255,180,94,.4);
+  transition:all .2s;
+}
+.p-action:hover{ background:rgba(255,180,94,.12); box-shadow:0 0 12px rgba(255,180,94,.3); }
+
 /* ---- stellar catalog (galaxy mode) ---- */
 #catalog{
   position:fixed; top:88px; left:32px; z-index:10; width:216px;

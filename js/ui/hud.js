@@ -13,7 +13,7 @@ export class Hud {
   }
 
   /* ---- target data panel ---- */
-  showPanel(tag, name, cls, info){
+  showPanel(tag, name, cls, info, action){
     for (const t of this.tickTimers) clearInterval(t);
     this.tickTimers = [];
     $('p-tag').textContent = tag;
@@ -28,6 +28,13 @@ export class Hud {
       const vs = document.createElement('span'); vs.className = 'v';
       row.appendChild(ks); row.appendChild(vs); rows.appendChild(row);
       this._tickInto(vs, v);
+    }
+    if (action){
+      const btn = document.createElement('div');
+      btn.className = 'p-action';
+      btn.textContent = action.label;
+      btn.addEventListener('click', action.cb);
+      rows.appendChild(btn);
     }
     $('panel').classList.add('show');
   }

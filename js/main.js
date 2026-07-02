@@ -10,6 +10,7 @@ import { CameraRig } from './core/cameraRig.js';
 import { Input } from './core/input.js';
 import { SystemView } from './scenes/systemView.js';
 import { GalaxyView } from './scenes/galaxyView.js';
+import { SurfaceView, canDescend } from './scenes/surfaceView.js';
 import { LabelManager } from './ui/labels.js';
 import { Hud } from './ui/hud.js';
 import { SOL_SYSTEM } from './data/solData.js';
@@ -41,6 +42,7 @@ class App {
     this.galaxyView = new GalaxyView(this.labels);
     this.mode = 'system';
     this.systemView = null;
+    this.surfaceView = null;
     this.focus = null;          // system mode: null | CentralStar | Planet
     this.galaxyFocus = null;    // galaxy mode: catalog entry awaiting jump
     this.hovered = null;
@@ -86,9 +88,10 @@ class App {
 
   _setHash(){
     let h = '#/galaxy';
-    if (this.mode === 'system'){
+    if (this.mode === 'system' || this.mode === 'surface'){
       h = '#/' + this._slug(this.systemRec.name);
       if (this.focus && !this.focus.isStar) h += '/' + this._bodySlug(this.focus);
+      if (this.mode === 'surface') h += '/orbit';
       h += '?t=' + this.time.simDays.toFixed(1);
     }
     this._settingHash = true;
@@ -97,9 +100,9 @@ class App {
   }
 
   _applyRoute(hash = location.hash){
-    const m = hash.match(/^#\/([^/?]+)(?:\/([^/?]+))?(?:\?t=(-?[\d.]+))?/);
+    const m = hash.match(/^#\/([^/?]+)(?:\/([^/?]+))?(?:\/(orbit))?(?:\?t=(-?[\d.]+))?/);
     if (!m) return;
-    const [, starSlug, bodySlug, t] = m;
+    const [, starSlug, bodySlug, orbit, t] = m;
     if (t !== undefined) this.time.simDays = parseFloat(t) || 0;
     if (starSlug === 'galaxy'){ this.exitToGalaxy(); return; }
     const rec = STAR_CATALOG.find(r => this._slug(r.name) === starSlug);
@@ -108,13 +111,17 @@ class App {
       this.enterSystem(rec, true);
     if (bodySlug && this.systemView){
       const body = this.systemView.planets.find(p => this._bodySlug(p) === bodySlug);
-      if (body) this.focusPlanet(body);
+      if (body){
+        this.focusPlanet(body);
+        if (orbit && canDescend(body)) this.enterSurface(body);
+      }
     }
   }
 
   /* ================= scale transitions ================= */
 
   _buildSystem(rec){
+    if (this.surfaceView){ this.surfaceView.dispose(); this.surfaceView = null; }
     if (this.systemView) this.systemView.dispose();
     this.labels.clear();
     const def = rec.sol ? SOL_SYSTEM : generateSystem(rec);
@@ -167,6 +174,7 @@ class App {
     if (this.mode === 'galaxy') return;
     this.hud.flash();
     const rec = this.systemRec;
+    if (this.surfaceView){ this.surfaceView.dispose(); this.surfaceView = null; }
     if (this.systemView){ this.systemView.dispose(); this.systemView = null; }
     this.labels.clear();
     this.galaxyView.registerLabels();
@@ -192,9 +200,15 @@ class App {
   }
 
   _checkAscend(){
-    if (this.mode === 'system' && !this.rig.flying &&
-        this.rig.dist >= this.rig.maxDist * 0.985)
-      this.exitToGalaxy();
+    if (this.rig.flying) return;
+    if (this.mode === 'surface' && this.rig.dist >= this.rig.maxDist * 0.985)
+      return this.exitSurface();
+    if (this.mode === 'system' && this.rig.dist >= this.rig.maxDist * 0.985)
+      return this.exitToGalaxy();
+    // zoom INTO a focused solid planet → drop to low orbit
+    if (this.mode === 'system' && this.focus && !this.focus.isStar &&
+        canDescend(this.focus) && this.rig.dist <= this.rig.minDist * 1.02)
+      this.enterSurface(this.focus);
   }
 
   /* ================= focus + navigation ================= */
@@ -203,7 +217,43 @@ class App {
     this.focus = p;
     this.rig.minDist = p.r * 2.2;
     this.rig.flyTo({ getTarget: () => p.group.position, dist: p.cfg.view, dur: 1.25 });
-    this.hud.showPanel('TARGET LOCK', p.name, p.cfg.cls, p.cfg.info);
+    const action = canDescend(p)
+      ? { label: '▸ ENTER LOW ORBIT', cb: () => this.enterSurface(p) } : undefined;
+    this.hud.showPanel('TARGET LOCK', p.name, p.cfg.cls, p.cfg.info, action);
+    this._crumbs();
+  }
+
+  /* ---- third scale: low orbit around a solid world ---- */
+  enterSurface(p){
+    if (this.mode !== 'system' || !p || p.isStar || !canDescend(p)) return;
+    this.hud.flash();
+    this.labels.clear();
+    this.surfaceView = new SurfaceView(p, this.systemView.def.star);
+    this.mode = 'surface';
+    this.rig.minDist = this.surfaceView.minDist();
+    this.rig.maxDist = this.surfaceView.maxDist();
+    this.rig.snap({ getTarget: () => ORIGIN, dist: this.surfaceView.maxDist() * 0.92, phi: 1.2 });
+    this.rig.flyTo({ dist: this.surfaceView.overviewDist(), dur: 1.5 });
+    this.hud.setMinimapVisible(false);
+    this.hud.setEventsVisible(false);
+    this._crumbs();
+  }
+
+  exitSurface(){
+    if (this.mode !== 'surface') return;
+    const p = this.focus;
+    this.hud.flash();
+    this.surfaceView.dispose();
+    this.surfaceView = null;
+    this.labels.clear();
+    this.systemView.registerLabels();
+    this.mode = 'system';
+    this.rig.minDist = p.r * 2.2;
+    this.rig.maxDist = this.systemView.maxDist();
+    this.rig.snap({ getTarget: () => p.group.position, dist: p.cfg.view * 2.2 });
+    this.rig.flyTo({ dist: p.cfg.view, dur: 1.2 });
+    this.hud.setMinimapVisible(true);
+    this.hud.setEventsVisible(true);
     this._crumbs();
   }
   focusStar(){
@@ -224,10 +274,13 @@ class App {
 
   _crumbs(){
     const crumbs = [{ label: 'GALAXY', action: () => this.exitToGalaxy() }];
-    if (this.mode === 'system'){
+    if (this.mode === 'system' || this.mode === 'surface'){
       crumbs.push({ label: this.systemRec.name, action: () => this.systemOverview() });
-      if (this.focus && !this.focus.isStar) crumbs.push({ label: this.focus.name });
+      if (this.focus && !this.focus.isStar)
+        crumbs.push({ label: this.focus.name,
+                      action: this.mode === 'surface' ? () => this.exitSurface() : null });
       else if (this.focus && this.focus.isStar) crumbs.push({ label: 'PHOTOSPHERE' });
+      if (this.mode === 'surface') crumbs.push({ label: 'LOW ORBIT' });
     }
     this.hud.setCrumbs(crumbs);
     this._setHash();   // every navigation change is a shareable URL
@@ -236,6 +289,7 @@ class App {
   /* ================= picking ================= */
 
   _raycast(x, y){
+    if (this.mode === 'surface') return null;
     this.ndc.set((x / this.W) * 2 - 1, -(y / this.H) * 2 + 1);
     this.raycaster.setFromCamera(this.ndc, this.camera);
     const targets = this.mode === 'system'
@@ -245,6 +299,7 @@ class App {
   }
 
   _onClick(x, y){
+    if (this.mode === 'surface') return;
     const hit = this._raycast(x, y);
     if (this.mode === 'system'){
       if (!hit) return this.systemOverview();
@@ -309,7 +364,9 @@ class App {
       this.hud.syncTimeButtons(this.time.rate);
     }
     if (e.key === 'Escape'){
-      if (this.mode === 'system'){
+      if (this.mode === 'surface'){
+        this.exitSurface();
+      } else if (this.mode === 'system'){
         if (this.focus) this.systemOverview();
         else this.exitToGalaxy();
       } else {
@@ -331,7 +388,12 @@ class App {
     this.rig.update(dt, this.now);
 
     const R = this.renderer;
-    if (this.mode === 'system'){
+    if (this.mode === 'surface'){
+      this.surfaceView.update(dt, this.time.simDays);
+      R.setViewport(0, 0, this.W, this.H);
+      R.setScissorTest(false);
+      R.render(this.surfaceView.scene, this.camera);
+    } else if (this.mode === 'system'){
       this.systemView.update(dt, this.time.simDays, this.now);
       this.labels.update(this.camera, this.W, this.H);
 
