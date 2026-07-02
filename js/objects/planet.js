@@ -4,6 +4,9 @@
 
 import * as THREE from 'three';
 import { makePlanetTexture, makeRingTexture } from '../utils/textures.js';
+import { displayPosition, julianDate } from '../data/ephemeris.js';
+
+const J2000_EPOCH_MS = Date.UTC(2026, 6, 2);   // must match TimeSystem.EPOCH
 
 export class Planet {
   constructor(cfg){
@@ -60,8 +63,13 @@ export class Planet {
 
   update(simDays){
     const b = this.cfg;
-    const ang = b.phase + 2 * Math.PI * simDays / b.period;
-    this.group.position.set(Math.cos(ang) * b.dist, 0, Math.sin(ang) * b.dist);
+    if (b.eph){
+      // real JPL elements: true heliocentric direction for the current date
+      displayPosition(b.eph, julianDate(J2000_EPOCH_MS, simDays), b.dist, this.group.position);
+    } else {
+      const ang = b.phase + 2 * Math.PI * simDays / b.period;
+      this.group.position.set(Math.cos(ang) * b.dist, 0, Math.sin(ang) * b.dist);
+    }
     this.mesh.rotation.y = 2 * Math.PI * simDays / b.rotP;   // sign ⇒ retrograde
     for (const m of this.moons){
       const ma = m.phase + 2 * Math.PI * simDays / m.period;
@@ -72,6 +80,22 @@ export class Planet {
   setHover(on){
     this.mat.emissiveIntensity = on ? Math.max(0.45, this.baseEmissive) : this.baseEmissive;
   }
+}
+
+/* orbit path for an ephemeris body: sample the real ellipse over one period */
+export function buildEphemerisOrbit(cfg, color = 0x3fa8c8, opacity = 0.33){
+  const seg = 240, pos = new Float32Array(seg * 3);
+  const v = new THREE.Vector3();
+  const jd0 = julianDate(J2000_EPOCH_MS, 0);
+  for (let i = 0; i < seg; i++){
+    displayPosition(cfg.eph, jd0 + (i / seg) * cfg.period, cfg.dist, v);
+    pos[i*3] = v.x; pos[i*3+1] = v.y; pos[i*3+2] = v.z;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  return new THREE.LineLoop(g, new THREE.LineBasicMaterial({
+    color, transparent: true, opacity,
+    blending: THREE.AdditiveBlending, depthWrite: false }));
 }
 
 export function buildOrbitRing(radius, color = 0x3fa8c8, opacity = 0.33){
