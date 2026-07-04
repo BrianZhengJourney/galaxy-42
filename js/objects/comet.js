@@ -34,6 +34,7 @@ export class Comet {
     this.tailGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     this.tail = new THREE.Points(this.tailGeo, new THREE.PointsMaterial({
       size: 0.55, vertexColors: true, transparent: true, opacity: 0.85,
+      map: makeGlowTexture('rgba(255,255,255,1)', 'rgba(255,255,255,.35)', 64),
       blending: THREE.AdditiveBlending, depthWrite: false }));
 
     this._cp = new THREE.Vector3(); this._cd = new THREE.Vector3();

@@ -3,6 +3,14 @@
 
 import * as THREE from 'three';
 import { mulberry, hashStr } from '../utils/rng.js';
+import { makeGlowTexture } from '../utils/textures.js';
+
+/* shared soft round sprite so near-camera points don't render as squares */
+let _dot = null;
+export function dotTexture(){
+  if (!_dot) _dot = makeGlowTexture('rgba(255,255,255,1)', 'rgba(255,255,255,.35)', 64);
+  return _dot;
+}
 
 export function buildStarSphere(seed = 'stars'){
   const N = 3200, pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
@@ -39,5 +47,6 @@ export function buildDust(extent, seed = 'dust'){
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   return new THREE.Points(g, new THREE.PointsMaterial({
     color: 0x7fd8ee, size: 0.35, transparent: true, opacity: 0.28,
+    map: dotTexture(),
     blending: THREE.AdditiveBlending, depthWrite: false }));
 }

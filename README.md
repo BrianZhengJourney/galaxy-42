@@ -59,6 +59,16 @@ And on top of the map:
   and *Galactic Landmarks* (Sgr A*, the pulsar, TRAPPIST-1).
 - **Deep links** — every view is a shareable URL: `#/trappist-1/e`,
   `#/sol/mars/orbit?t=500`, `#/galaxy`.
+- **Night-sky mode** (`#/sol/earth/sky`) — stand on Earth and see the *real*
+  sky for the simulation date: 6,000 HYG stars, the IAU constellation
+  figures, and the Sun, Moon and planets placed geocentrically from the same
+  ephemerides that drive the orrery. Drag to look around, scroll to zoom
+  FOV, fast-forward to wheel the sky through the night.
+- **Real neighbourhood geometry** — the 30 catalog stars sit at their true
+  J2000 directions (log-compressed distances), surrounded by a point cloud
+  of the actual sub-25 pc solar neighbourhood colored by B−V index.
+- **Photometer** — a live transit light curve along your line of sight.
+  Align TRAPPIST-1 edge-on and watch the flux dips that discovered it.
 
 ## Controls
 
@@ -83,6 +93,7 @@ test/core.test.mjs    node --test suite for the dependency-free core
 js/
   main.js             App: mode switching, picking, transitions, main loop
   core/
+    astro.js          sidereal time, frames, geocentric Sun/Moon/planets
     time.js           TimeSystem — simDays is the single source of truth
     cameraRig.js      spherical rig + eased fly-to (no OrbitControls)
     input.js          pointer/keyboard → app callbacks, drag-vs-click
@@ -96,6 +107,8 @@ js/
     starCatalog.js    named stars, binaries, pulsar, Sgr A*, color helpers
     exoplanets.js     confirmed planets (NASA archive values, inlined)
     tours.js          authored tour scripts
+    gen/              GENERATED: HYG stars + constellation lines
+tools/build-starcatalog.mjs  regenerates data/gen from HYG + d3-celestial
   procgen/
     system.js         confirmed | procedural | black-hole system generator
   objects/
@@ -109,7 +122,9 @@ js/
     systemView.js     one star system: owns scene, bodies, minimap, dispose()
     galaxyView.js     the persistent galactic scene
     surfaceView.js    low orbit: fBm terrain, water, clouds, atmosphere
+    skyView.js        night sky: real stars/constellations over an observer
   ui/
+    photometer.js     live transit light-curve instrument
     hud.js            panels (ticking digits), crumbs, catalog, console, hum
     labels.js         projected HTML labels with distance fade
   utils/

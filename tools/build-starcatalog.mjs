@@ -130,7 +130,7 @@ const polylines = [];
 for (const feat of con.features)
   for (const line of feat.geometry.coordinates)
     polylines.push(line.map(([ra, dec]) => [
-      Math.round(((ra + 360) % 360) * 10) / 10, Math.round(dec * 10) / 10
+      (Math.round(((ra + 360) % 360) * 10) / 10) % 360, Math.round(dec * 10) / 10
     ]));
 console.log('constellation polylines:', polylines.length);
 

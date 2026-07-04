@@ -149,6 +149,19 @@ canvas{ display:block; }
 }
 #mapFrame.hidden{ display:none; }
 
+/* ---- photometer ---- */
+#photometer{
+  position:fixed; left:20px; bottom:318px; z-index:9; width:248px;
+  background:var(--panel-bg); border:1px solid var(--line);
+  padding:8px; backdrop-filter:blur(6px); display:none;
+}
+#photometer.show{ display:block; }
+#photometer .t{ font-family:var(--mono); font-size:8px; letter-spacing:.26em;
+  color:rgba(207,238,247,.45); margin-bottom:6px; }
+#photoCanvas{ display:block; width:232px; height:64px; }
+#photoReadout{ font-family:var(--mono); font-size:9px; letter-spacing:.18em;
+  color:rgba(207,238,247,.55); margin-top:5px; }
+
 /* ---- tours ---- */
 #tourBtn{
   pointer-events:auto; cursor:pointer; display:inline-block; margin-top:6px; margin-left:8px;

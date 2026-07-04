@@ -123,3 +123,63 @@ test('weighted picks respect the candidate set', () => {
     assert.ok(['a', 'b', 'c'].includes(v));
   }
 });
+
+/* ---------------- observational astronomy ---------------- */
+
+import { gmst, lst, altAz, sunGeo, moonGeo, planetGeo, OBSERVER } from '../js/core/astro.js';
+
+test('GMST at the J2000 epoch matches the textbook value', () => {
+  assert.ok(Math.abs(gmst(2451545.0) - 280.4606) < 0.001, gmst(2451545.0));
+});
+
+test('Polaris stands at the observer latitude, due north', () => {
+  const p = altAz(37.95, 89.264, 217.3, OBSERVER.lat);   // any LST
+  assert.ok(Math.abs(p.alt - OBSERVER.lat) < 0.8, 'alt ' + p.alt);
+  assert.ok(p.az < 2 || p.az > 358, 'az ' + p.az);
+});
+
+test('the Sun crosses RA 0 at the March 2026 equinox', () => {
+  const jd = Date.UTC(2026, 2, 20, 14) / 86400000 + 2440587.5;
+  const s = sunGeo(jd);
+  assert.ok(s.ra > 358 || s.ra < 2, 'RA ' + s.ra);
+  assert.ok(Math.abs(s.dec) < 0.5, 'dec ' + s.dec);
+});
+
+test('the Moon stays within its real distance envelope', () => {
+  for (let d = 0; d < 30; d += 2){
+    const m = moonGeo(2461223.5 + d);
+    assert.ok(m.distKm > 350000 && m.distKm < 410000, m.distKm);
+  }
+});
+
+test('geocentric Mars stays within its geocentric distance range', () => {
+  for (let d = 0; d < 800; d += 40){
+    const m = planetGeo('MARS', 2461223.5 + d);
+    assert.ok(m.r > 0.37 && m.r < 2.7, 'r = ' + m.r + ' AU');   // real bounds
+  }
+});
+
+/* ---------------- generated real-data catalogs ---------------- */
+
+import { STARS, STAR_NAMES, REAL_STARS } from '../js/data/gen/brightStars.js';
+import { CONSTELLATION_LINES } from '../js/data/gen/constellations.js';
+
+test('the generated star catalog is well-formed', () => {
+  const n = STARS.mag.length;
+  assert.ok(n > 5000 && n < 8000, 'count ' + n);
+  assert.equal(STARS.ra.length, n);
+  assert.equal(STAR_NAMES[0], 'Sirius');            // brightest first
+  assert.ok(STARS.mag[0] < -1.4);
+  for (const k of ['SIRIUS', 'VEGA', 'PROXIMA CENTAURI', 'TRAPPIST-1'])
+    assert.ok(REAL_STARS[k] && REAL_STARS[k].dist > 0, k);
+  assert.ok(Math.abs(REAL_STARS['PROXIMA CENTAURI'].dist - 1.3) < 0.05);
+});
+
+test('constellation lines cover the sky in valid coordinates', () => {
+  assert.ok(CONSTELLATION_LINES.length > 80);
+  for (const line of CONSTELLATION_LINES)
+    for (const [ra, dec] of line){
+      assert.ok(ra >= 0 && ra < 360);
+      assert.ok(dec >= -90 && dec <= 90);
+    }
+});

@@ -4,6 +4,7 @@
 
 import * as THREE from 'three';
 import { mulberry, hashStr } from '../utils/rng.js';
+import { dotTexture } from './starfield.js';
 
 export class AsteroidBelt {
   constructor({ inner, outer, count, seed }){
@@ -23,6 +24,7 @@ export class AsteroidBelt {
     this.geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     this.points = new THREE.Points(this.geo, new THREE.PointsMaterial({
       color: 0x9c9284, size: 0.22, transparent: true, opacity: 0.75,
+      map: dotTexture(), alphaTest: 0.05,
       sizeAttenuation: true, depthWrite: false }));
     this.update(0);
   }

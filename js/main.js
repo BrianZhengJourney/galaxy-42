@@ -21,6 +21,7 @@ import { generateSystem } from './procgen/system.js';
 import { Journal } from './core/journal.js';
 import { TourEngine } from './core/tour.js';
 import { TOURS } from './data/tours.js';
+import { Photometer } from './ui/photometer.js';
 
 const ORIGIN = new THREE.Vector3();
 
@@ -60,6 +61,7 @@ class App {
     this.hud.buildCatalog(STAR_CATALOG, rec => this.enterSystem(rec, true), this.journal);
     this.tours = new TourEngine(this);
     this._wireTourMenu();
+    this.photometer = new Photometer();
     this.hud.syncTimeButtons(this.time.rate);
 
     this.input = new Input(this.renderer.domElement, {
@@ -244,6 +246,7 @@ class App {
     this.systemView = new SystemView(def, this.labels);
     this.systemRec = rec;
     this.journal.markVisited(rec.name, this.time.fmtDate());
+    if (this.photometer) this.photometer.reset();
     this.hud.buildCatalog(STAR_CATALOG, r => this.enterSystem(r, true), this.journal);
     this.mode = 'system';
     this.focus = null;
@@ -404,6 +407,7 @@ class App {
   /* ---- third scale: low orbit around a solid world ---- */
   enterSurface(p){
     if (this.mode !== 'system' || !p || p.isStar || !canDescend(p)) return;
+    this.focus = p;
     this.hud.flash();
     this.labels.clear();
     this.surfaceView = new SurfaceView(p, this.systemView.def.star);
@@ -420,6 +424,7 @@ class App {
   /* ---- night sky: stand on Earth, real sky for the sim date ---- */
   enterSky(){
     if (this.mode !== 'system' || !this.systemRec || this.systemRec.name !== 'SOL') return;
+    this.focus = this.systemView.findBody('EARTH');   // you are standing on it
     this.hud.flash();
     this.labels.clear();
     this.skyView = new SkyView(this.labels);
@@ -467,7 +472,7 @@ class App {
 
   exitSurface(){
     if (this.mode !== 'surface') return;
-    const p = this.focus;
+    const p = this.focus || this.systemView.planets[0];
     this.hud.flash();
     this.surfaceView.dispose();
     this.surfaceView = null;
@@ -664,6 +669,9 @@ class App {
       if (this._evTick % 90 === 0 && this._events && this._events.length &&
           this.time.simDays > this._events[0].t + 0.5)
         this._computeEvents();
+
+      // transit light curve along the current line of sight
+      this.photometer.sample(this.camera, this.systemView.star, this.systemView.planets);
 
       // active mission: move the probe, keep the panel status live
       if (this.mission){

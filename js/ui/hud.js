@@ -117,7 +117,10 @@ export class Hud {
       list.appendChild(item);
     }
   }
-  setMinimapVisible(on){ $('mapFrame').classList.toggle('hidden', !on); }
+  setMinimapVisible(on){
+    $('mapFrame').classList.toggle('hidden', !on);
+    $('photometer').classList.toggle('show', on);   // instruments travel together
+  }
   setCatalogVisible(on){ $('catalog').classList.toggle('show', on); }
 
   buildCatalog(entries, onPick, journal){
