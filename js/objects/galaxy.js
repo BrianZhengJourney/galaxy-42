@@ -6,7 +6,13 @@
 import * as THREE from 'three';
 import { mulberry, gaussian, weighted } from '../utils/rng.js';
 import { makeGlowTexture, makeSmokeTexture } from '../utils/textures.js';
-import { STAR_CATALOG, starColor } from '../data/starCatalog.js';
+import { STAR_CATALOG, starColor, raDecToOffset, SOL_GALAXY_POS } from '../data/starCatalog.js';
+import { STARS } from '../data/gen/brightStars.js';
+
+/* Ballesteros' approximation: B−V color index → effective temperature */
+export function ciToTemp(ci){
+  return 4600 * (1 / (0.92 * ci + 1.7) + 1 / (0.92 * ci + 0.62));
+}
 
 const GALAXY_R = 520;
 const ARMS = 4;
@@ -127,6 +133,31 @@ export function buildGalaxy(){
     sp.scale.set(s, s * (0.5 + rnd() * 0.5), 1);
     sp.position.set(Math.cos(th) * r, gaussian(rnd) * 4, Math.sin(th) * r);
     group.add(sp);
+  }
+
+  /* ---- the real solar neighbourhood: HYG stars within 25 pc, at their
+     true (compressed) 3D positions around Sol ---- */
+  {
+    const idx = [];
+    for (let i = 0; i < STARS.dist.length; i++)
+      if (STARS.dist[i] > 0 && STARS.dist[i] <= 25) idx.push(i);
+    const n = idx.length;
+    const lp = new Float32Array(n * 3), lc = new Float32Array(n * 3), ls = new Float32Array(n);
+    idx.forEach((si, i) => {
+      const off = raDecToOffset(STARS.ra[si], STARS.dec[si], STARS.dist[si]);
+      lp[i*3]   = SOL_GALAXY_POS[0] + off[0];
+      lp[i*3+1] = SOL_GALAXY_POS[1] + off[1];
+      lp[i*3+2] = SOL_GALAXY_POS[2] + off[2];
+      const [cr, cg, cb] = starColor(ciToTemp(STARS.ci[si]));
+      const bright = Math.max(0.35, Math.min(1, 1.1 - STARS.mag[si] * 0.055));
+      lc[i*3] = cr * bright; lc[i*3+1] = cg * bright; lc[i*3+2] = cb * bright;
+      ls[i] = Math.max(0.7, 2.3 - STARS.mag[si] * 0.14);
+    });
+    const lg = new THREE.BufferGeometry();
+    lg.setAttribute('position', new THREE.BufferAttribute(lp, 3));
+    lg.setAttribute('color', new THREE.BufferAttribute(lc, 3));
+    lg.setAttribute('size', new THREE.BufferAttribute(ls, 1));
+    group.add(new THREE.Points(lg, starPoints.material));
   }
 
   /* ---- catalog stars: glow sprite + pick sphere ---- */

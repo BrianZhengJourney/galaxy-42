@@ -40,6 +40,25 @@ export const STAR_CATALOG = [
   { name:'SAGITTARIUS A*', cls:'SMBH', temp:30000, mass:4150000, radius:17.6, lum:100000, pos:[0, 1, 0], blackhole:true }
 ];
 
+/* ---- real geometry: reposition the catalog from HYG coordinates ----
+   True J2000 directions; distance log-compressed so the neighbourhood stays
+   legible (Proxima 1.3 pc → ~4 units, Deneb ~430 pc → ~65 units). */
+import { REAL_STARS } from './gen/brightStars.js';
+
+const DEG = Math.PI / 180;
+export function compressParsecs(pc){ return 14 * Math.log(1 + pc / 4); }
+export function raDecToOffset(raDeg, decDeg, pc){
+  const d = compressParsecs(pc), cd = Math.cos(decDeg * DEG), a = raDeg * DEG;
+  return [cd * Math.cos(a) * d, Math.sin(decDeg * DEG) * d, cd * Math.sin(a) * d];
+}
+for (const rec of STAR_CATALOG){
+  const r = REAL_STARS[rec.name];
+  if (!r) continue;
+  const off = raDecToOffset(r.ra, r.dec, r.dist);
+  rec.pos = [SOL_GALAXY_POS[0] + off[0], SOL_GALAXY_POS[1] + off[1], SOL_GALAXY_POS[2] + off[2]];
+  rec.realDistPc = r.dist;
+}
+
 /* binary companions rendered inside the system view */
 export const COMPANIONS = {
   'ALPHA CENTAURI': { name:'ALPHA CEN B', cls:'K1V', temp:5260, radiusVis:2.9,
