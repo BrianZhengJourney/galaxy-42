@@ -11,6 +11,7 @@ import { Input } from './core/input.js';
 import { SystemView } from './scenes/systemView.js';
 import { GalaxyView } from './scenes/galaxyView.js';
 import { SurfaceView, canDescend } from './scenes/surfaceView.js';
+import { SkyView, OBSERVER } from './scenes/skyView.js';
 import { planMission, probePosition, missionState, buildMissionVisuals } from './core/mission.js';
 import { LabelManager } from './ui/labels.js';
 import { Hud } from './ui/hud.js';
@@ -47,6 +48,8 @@ class App {
     this.mode = 'system';
     this.systemView = null;
     this.surfaceView = null;
+    this.skyView = null;
+    this.skyYaw = 0; this.skyPitch = 0.35;
     this.focus = null;          // system mode: null | CentralStar | Planet
     this.galaxyFocus = null;    // galaxy mode: catalog entry awaiting jump
     this.hovered = null;
@@ -60,8 +63,23 @@ class App {
     this.hud.syncTimeButtons(this.time.rate);
 
     this.input = new Input(this.renderer.domElement, {
-      drag: (dx, dy) => { this.rig.drag(dx, dy); this.rig.interact(this.now); },
-      wheel: dy => { this.rig.zoom(dy); this.rig.interact(this.now); this._checkAscend(); },
+      drag: (dx, dy) => {
+        if (this.mode === 'sky'){
+          this.skyYaw -= dx * 0.0032 * (this.camera.fov / 52);
+          this.skyPitch = Math.max(-0.12, Math.min(Math.PI / 2 - 0.02,
+            this.skyPitch + dy * 0.0032 * (this.camera.fov / 52)));
+          return;
+        }
+        this.rig.drag(dx, dy); this.rig.interact(this.now);
+      },
+      wheel: dy => {
+        if (this.mode === 'sky'){
+          this.camera.fov = Math.max(16, Math.min(75, this.camera.fov * Math.exp(dy * 0.001)));
+          this.camera.updateProjectionMatrix();
+          return;
+        }
+        this.rig.zoom(dy); this.rig.interact(this.now); this._checkAscend();
+      },
       click: (x, y) => this._onClick(x, y),
       hover: (x, y) => this._onHover(x, y),
       key: e => this._onKey(e)
@@ -100,10 +118,11 @@ class App {
 
   _setHash(){
     let h = '#/galaxy';
-    if (this.mode === 'system' || this.mode === 'surface'){
+    if (this.mode === 'system' || this.mode === 'surface' || this.mode === 'sky'){
       h = '#/' + this._slug(this.systemRec.name);
       if (this.focus && !this.focus.isStar) h += '/' + this._bodySlug(this.focus);
       if (this.mode === 'surface') h += '/orbit';
+      if (this.mode === 'sky') h += '/sky';
       h += '?t=' + this.time.simDays.toFixed(1);
     }
     this._settingHash = true;
@@ -112,7 +131,7 @@ class App {
   }
 
   _applyRoute(hash = location.hash){
-    const m = hash.match(/^#\/([^/?]+)(?:\/([^/?]+))?(?:\/(orbit))?(?:\?t=(-?[\d.]+))?/);
+    const m = hash.match(/^#\/([^/?]+)(?:\/([^/?]+))?(?:\/(orbit|sky))?(?:\?t=(-?[\d.]+))?/);
     if (!m) return;
     const [, starSlug, bodySlug, orbit, t] = m;
     if (t !== undefined) this.time.simDays = parseFloat(t) || 0;
@@ -125,7 +144,8 @@ class App {
       const body = this.systemView.planets.find(p => this._bodySlug(p) === bodySlug);
       if (body){
         this.focusPlanet(body);
-        if (orbit && canDescend(body)) this.enterSurface(body);
+        if (orbit === 'sky' && body.name === 'EARTH') this.enterSky();
+        else if (orbit === 'orbit' && canDescend(body)) this.enterSurface(body);
       }
     }
   }
@@ -216,6 +236,7 @@ class App {
 
   _buildSystem(rec){
     this.cancelMission();
+    if (this.skyView){ this.skyView.dispose(); this.skyView = null; }
     if (this.surfaceView){ this.surfaceView.dispose(); this.surfaceView = null; }
     if (this.systemView) this.systemView.dispose();
     this.labels.clear();
@@ -272,6 +293,7 @@ class App {
     this.hud.flash();
     const rec = this.systemRec;
     this.cancelMission();
+    if (this.skyView){ this.skyView.dispose(); this.skyView = null; }
     if (this.surfaceView){ this.surfaceView.dispose(); this.surfaceView = null; }
     if (this.systemView){ this.systemView.dispose(); this.systemView = null; }
     this.labels.clear();
@@ -316,6 +338,8 @@ class App {
     this.rig.minDist = p.r * 2.2;
     this.rig.flyTo({ getTarget: () => p.group.position, dist: p.cfg.view, dur: 1.25 });
     const actions = [];
+    if (p.name === 'EARTH' && this.systemRec.name === 'SOL')
+      actions.push({ label: '▸ NIGHT SKY · SURFACE VIEW', cb: () => this.enterSky() });
     if (canDescend(p))
       actions.push({ label: '▸ ENTER LOW ORBIT', cb: () => this.enterSurface(p) });
     if (!this.mission && this.systemView.planets.length > 1)
@@ -393,6 +417,54 @@ class App {
     this._crumbs();
   }
 
+  /* ---- night sky: stand on Earth, real sky for the sim date ---- */
+  enterSky(){
+    if (this.mode !== 'system' || !this.systemRec || this.systemRec.name !== 'SOL') return;
+    this.hud.flash();
+    this.labels.clear();
+    this.skyView = new SkyView(this.labels);
+    this.mode = 'sky';
+    this.skyYaw = Math.PI;            // face south, where the ecliptic rides
+    this.skyPitch = 0.35;
+    this.camera.position.set(0, 2, 0);
+    this.camera.rotation.order = 'YXZ';
+    this.hud.setMinimapVisible(false);
+    this.hud.setEventsVisible(false);
+    this._skyPanel();
+    this._crumbs();
+  }
+
+  _skyPanel(){
+    const st = this.skyView.status(this.time.simDays);
+    this.hud.showPanel('GROUND STATION', 'NIGHT SKY', OBSERVER.name, {
+      'LATITUDE': OBSERVER.lat.toFixed(2) + '° N',
+      'LONGITUDE': Math.abs(OBSERVER.lon).toFixed(2) + '° W',
+      'LOCAL SIDEREAL': (st.lstDeg / 15).toFixed(2) + ' h',
+      'SUN ALTITUDE': st.sunAlt.toFixed(1) + '°',
+      'CATALOG': 'HYG v4.1 · ' + '5,998 STARS'
+    }, [
+      { label: '▸ TOGGLE CONSTELLATIONS', cb: () => this.skyView.toggleConstellations() },
+      { label: '▸ RETURN TO ORBIT', cb: () => this.exitSky() }
+    ]);
+  }
+
+  exitSky(){
+    if (this.mode !== 'sky') return;
+    this.hud.flash();
+    this.skyView.dispose();
+    this.skyView = null;
+    this.labels.clear();
+    this.systemView.registerLabels();
+    this.mode = 'system';
+    this.camera.fov = 52;
+    this.camera.rotation.set(0, 0, 0);
+    this.camera.updateProjectionMatrix();
+    const earth = this.systemView.findBody('EARTH');
+    this.focusPlanet(earth);
+    this.hud.setMinimapVisible(true);
+    this.hud.setEventsVisible(true);
+  }
+
   exitSurface(){
     if (this.mode !== 'surface') return;
     const p = this.focus;
@@ -428,13 +500,15 @@ class App {
 
   _crumbs(){
     const crumbs = [{ label: 'GALAXY', action: () => this.exitToGalaxy() }];
-    if (this.mode === 'system' || this.mode === 'surface'){
+    if (this.mode === 'system' || this.mode === 'surface' || this.mode === 'sky'){
       crumbs.push({ label: this.systemRec.name, action: () => this.systemOverview() });
       if (this.focus && !this.focus.isStar)
         crumbs.push({ label: this.focus.name,
-                      action: this.mode === 'surface' ? () => this.exitSurface() : null });
+                      action: this.mode === 'surface' ? () => this.exitSurface()
+                            : this.mode === 'sky' ? () => this.exitSky() : null });
       else if (this.focus && this.focus.isStar) crumbs.push({ label: 'PHOTOSPHERE' });
       if (this.mode === 'surface') crumbs.push({ label: 'LOW ORBIT' });
+      if (this.mode === 'sky') crumbs.push({ label: 'NIGHT SKY' });
     }
     this.hud.setCrumbs(crumbs);
     this._setHash();   // every navigation change is a shareable URL
@@ -453,7 +527,7 @@ class App {
   }
 
   _onClick(x, y){
-    if (this.mode === 'surface') return;
+    if (this.mode === 'surface' || this.mode === 'sky') return;
     const hit = this._raycast(x, y);
     if (this.mode === 'system'){
       // armed transfer: the next planet clicked becomes the destination
@@ -498,15 +572,19 @@ class App {
 
   _starInfo(rec){
     const fmt = v => (v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toPrecision(2));
-    return {
+    const info = {
       'SURFACE TEMP': rec.temp.toLocaleString('en-US') + ' K',
       'MASS': fmt(rec.mass) + ' M☉',
       'RADIUS': fmt(rec.radius) + ' R☉',
       'LUMINOSITY': fmt(rec.lum) + ' L☉'
     };
+    if (rec.realDistPc)
+      info['DISTANCE'] = fmt(rec.realDistPc * 3.2616) + ' ly (HYG)';
+    return info;
   }
 
   _onHover(x, y){
+    if (this.mode === 'sky' || this.mode === 'surface') return;
     const hit = this._raycast(x, y);
     const el = this.renderer.domElement;
     if (this.hovered && this.hovered !== hit){
@@ -532,7 +610,9 @@ class App {
       this.hud.syncTimeButtons(this.time.rate);
     }
     if (e.key === 'Escape'){
-      if (this.mode === 'surface'){
+      if (this.mode === 'sky'){
+        this.exitSky();
+      } else if (this.mode === 'surface'){
         this.exitSurface();
       } else if (this.mode === 'system'){
         if (this.focus) this.systemOverview();
@@ -553,10 +633,26 @@ class App {
     this.now = this.clock.elapsedTime;
 
     this.time.advance(dt);
-    this.rig.update(dt, this.now);
+    if (this.mode !== 'sky') this.rig.update(dt, this.now);
 
     const R = this.renderer;
-    if (this.mode === 'surface'){
+    if (this.mode === 'sky'){
+      this.skyView.update(this.time.simDays);
+      this.camera.position.set(0, 2, 0);
+      this.camera.rotation.set(this.skyPitch, this.skyYaw, 0);
+      this.labels.update(this.camera, this.W, this.H);
+      this._skyTick = (this._skyTick || 0) + 1;
+      if (this._skyTick % 20 === 0){
+        // update the live readouts in place (no re-scramble)
+        const st = this.skyView.status(this.time.simDays);
+        const vs = document.querySelectorAll('#p-rows .v');
+        if (vs.length >= 4){
+          vs[2].textContent = (st.lstDeg / 15).toFixed(2) + ' h';
+          vs[3].textContent = st.sunAlt.toFixed(1) + '°';
+        }
+      }
+      this._renderMain(this.skyView.scene);
+    } else if (this.mode === 'surface'){
       this.surfaceView.update(dt, this.time.simDays);
       this._renderMain(this.surfaceView.scene);
     } else if (this.mode === 'system'){
