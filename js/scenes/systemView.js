@@ -70,7 +70,7 @@ export class SystemView {
 
   update(dt, simDays, now){
     this.star.update(simDays, now);
-    for (const p of this.planets) p.update(simDays);
+    for (const p of this.planets) p.update(simDays, dt);
     if (this.belt) this.belt.update(simDays);
     if (this.comet) this.comet.update(simDays);
     this.dust.rotation.y += dt * 0.004;

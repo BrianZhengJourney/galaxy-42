@@ -4,6 +4,8 @@
 
 import * as THREE from 'three';
 import { makeStarTexture, makeGlowTexture } from '../utils/textures.js';
+import { loadTexture } from '../utils/assets.js';
+import { SUN_TEXTURE } from '../data/textureManifest.js';
 
 export class CentralStar {
   constructor(starCfg){
@@ -14,10 +16,12 @@ export class CentralStar {
     if (starCfg.blackhole){ this._buildBlackHole(starCfg); return; }
     if (starCfg.pulsar) this._buildPulsarBeams(starCfg);
 
-    this.mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(starCfg.coreRadius, 48, 32),
-      new THREE.MeshBasicMaterial({ map: makeStarTexture(starCfg.bright, starCfg.deep, starCfg.name) }));
+    const starMat = new THREE.MeshBasicMaterial({
+      map: makeStarTexture(starCfg.bright, starCfg.deep, starCfg.name) });
+    this.mesh = new THREE.Mesh(new THREE.SphereGeometry(starCfg.coreRadius, 48, 32), starMat);
     this.group.add(this.mesh);
+    if (starCfg.name === 'SOL')      // real photosphere imagery for the Sun
+      loadTexture(SUN_TEXTURE, tex => { starMat.map = tex; starMat.needsUpdate = true; });
 
     const c = new THREE.Color(starCfg.color);
     const rgb = [Math.round(c.r*255), Math.round(c.g*255), Math.round(c.b*255)].join(',');

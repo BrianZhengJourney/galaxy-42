@@ -5,6 +5,8 @@
 import * as THREE from 'three';
 import { makePlanetTexture, makeRingTexture } from '../utils/textures.js';
 import { displayPosition, heliocentric, julianDate } from '../data/ephemeris.js';
+import { loadTexture } from '../utils/assets.js';
+import { PLANET_TEXTURES, MOON_TEXTURE } from '../data/textureManifest.js';
 
 const J2000_EPOCH_MS = Date.UTC(2026, 6, 2);   // must match TimeSystem.EPOCH
 
@@ -26,8 +28,32 @@ export class Planet {
       emissive: new THREE.Color(cfg.glow ? (cfg.emissiveColor || '#ff5a22') : cfg.tex.base),
       emissiveIntensity: this.baseEmissive
     });
-    this.mesh = new THREE.Mesh(new THREE.SphereGeometry(cfg.r, 40, 26), this.mat);
+    this.mesh = new THREE.Mesh(new THREE.SphereGeometry(cfg.r, 48, 32), this.mat);
     this.spin.add(this.mesh);
+
+    // real imagery for the Sol system: swap in when it arrives (procedural
+    // texture shows instantly meanwhile; a failed fetch just keeps it)
+    const real = PLANET_TEXTURES[cfg.name];
+    if (real){
+      loadTexture(real.map, tex => {
+        // let sunlight reveal the real albedo — kill the procedural blue tint
+        this.mat.map = tex;
+        this.mat.emissive.set(0x000000);
+        this.baseEmissive = 0;
+        this.mat.emissiveIntensity = 0;
+        this.mat.needsUpdate = true;
+      });
+      if (real.clouds){
+        const cmat = new THREE.MeshStandardMaterial({
+          color: 0xffffff, transparent: true, opacity: 0.9,
+          depthWrite: false, roughness: 1 });
+        this.clouds = new THREE.Mesh(new THREE.SphereGeometry(cfg.r * 1.012, 48, 32), cmat);
+        this.spin.add(this.clouds);
+        loadTexture(real.clouds, tex => {
+          cmat.map = tex; cmat.alphaMap = tex; cmat.needsUpdate = true;
+        });
+      }
+    }
 
     if (cfg.rings){
       const inner = cfg.r * 1.35, outer = cfg.r * 2.35;
@@ -38,19 +64,27 @@ export class Planet {
         v.fromBufferAttribute(p, i);
         uv.setXY(i, (v.length() - inner) / (outer - inner), 0.5);
       }
-      const ring = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({
+      const rmat = new THREE.MeshBasicMaterial({
         map: makeRingTexture(cfg.name), side: THREE.DoubleSide,
-        transparent: true, opacity: 0.9, depthWrite: false }));
+        transparent: true, opacity: 0.9, depthWrite: false });
+      const ring = new THREE.Mesh(rg, rmat);
       ring.rotation.x = -Math.PI / 2;
       this.spin.add(ring);
+      if (real && real.ring)
+        loadTexture(real.ring, tex => { rmat.map = tex; rmat.needsUpdate = true; }, { srgb: true });
     }
 
     this.moons = [];
     (cfg.moons || []).forEach((m, mi) => {
-      const mm = new THREE.Mesh(new THREE.SphereGeometry(m.r, 14, 10),
-        new THREE.MeshStandardMaterial({ color: 0x9a948c, roughness: 1 }));
+      const mmat = new THREE.MeshStandardMaterial({ color: 0x9a948c, roughness: 1 });
+      const mm = new THREE.Mesh(new THREE.SphereGeometry(m.r, 24, 16), mmat);
       this.group.add(mm);
       this.moons.push({ mesh: mm, dist: m.dist, period: m.period, phase: mi * 2.1 });
+      // Earth's single moon gets the real lunar map
+      if (cfg.name === 'EARTH' && mi === 0)
+        loadTexture(MOON_TEXTURE, tex => {
+          mmat.map = tex; mmat.color.set(0xffffff); mmat.needsUpdate = true;
+        });
     });
 
     // invisible pick target so small planets are easy to click
@@ -59,6 +93,9 @@ export class Planet {
       new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
     this.pick.userData.body = this;
     this.group.add(this.pick);
+
+    this._hoverAmt = 0;
+    this._hoverTarget = 0;
   }
 
   /* pure orbital position — mission planning samples this at arbitrary times */
@@ -86,13 +123,23 @@ export class Planet {
     return out.set(Math.cos(ang) * b.dist, 0, Math.sin(ang) * b.dist);
   }
 
-  update(simDays){
+  update(simDays, dt = 0){
     const b = this.cfg;
     this.positionAt(simDays, this.group.position);
     this.mesh.rotation.y = 2 * Math.PI * simDays / b.rotP;   // sign ⇒ retrograde
+    if (this.clouds) this.clouds.rotation.y = 2 * Math.PI * simDays / b.rotP * 1.15;
     for (const m of this.moons){
       const ma = m.phase + 2 * Math.PI * simDays / m.period;
       m.mesh.position.set(Math.cos(ma) * m.dist, 0, Math.sin(ma) * m.dist);
+    }
+    // eased hover: emissive glow + a gentle scale swell (spaceship feel)
+    if (this._hoverAmt !== this._hoverTarget){
+      const k = Math.min(1, dt * 8);
+      this._hoverAmt += (this._hoverTarget - this._hoverAmt) * k;
+      if (Math.abs(this._hoverTarget - this._hoverAmt) < 0.01) this._hoverAmt = this._hoverTarget;
+      this.mat.emissiveIntensity = this.baseEmissive + this._hoverAmt * 0.4;
+      const s = 1 + this._hoverAmt * 0.05;
+      this.spin.scale.setScalar(s);
     }
   }
 
@@ -104,9 +151,7 @@ export class Planet {
     return (b.phase + 2 * Math.PI * simDays / b.period) % (2 * Math.PI);
   }
 
-  setHover(on){
-    this.mat.emissiveIntensity = on ? Math.max(0.45, this.baseEmissive) : this.baseEmissive;
-  }
+  setHover(on){ this._hoverTarget = on ? 1 : 0; }
 }
 
 /* orbit path for a Kepler body (S-stars): sample its eccentric ellipse */

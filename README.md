@@ -1,9 +1,12 @@
 # FABLE GALAXY // Deep Field Command
 
 An interactive, multi-scale 3D galaxy explorer with a sci-fi cockpit aesthetic.
-Pure ES modules + [three.js](https://threejs.org) from a CDN import map —
-**no build step, no external assets**; every texture, star and world is
-generated procedurally at runtime.
+Pure ES modules + [three.js](https://threejs.org) from a CDN import map, **no
+build step**. Procedural worlds are drawn on canvas at runtime; the real Sol
+system uses public [Solar System Scope](https://www.solarsystemscope.com/textures)
+imagery (CC BY 4.0, see [textures/CREDITS.md](textures/CREDITS.md)), synthesized
+WebAudio for the ambient soundscape and UI, and a small build script for the
+star catalogs.
 
 ## Running it
 
