@@ -22,6 +22,7 @@ import { Journal } from './core/journal.js';
 import { TourEngine } from './core/tour.js';
 import { TOURS } from './data/tours.js';
 import { Photometer } from './ui/photometer.js';
+import { AudioEngine } from './ui/audio.js';
 
 const ORIGIN = new THREE.Vector3();
 
@@ -44,6 +45,7 @@ class App {
     this.raycaster = new THREE.Raycaster();
     this.ndc = new THREE.Vector2();
     this._tmp = new THREE.Vector3();
+    this.audio = new AudioEngine();
 
     this.galaxyView = new GalaxyView(this.labels);
     this.mode = 'system';
@@ -285,6 +287,7 @@ class App {
 
   enterSystem(rec, viaCatalog = false){
     this.hud.flash();
+    this.audio.jump();
     this._buildSystem(rec);
     // arrive on a glide: start far out, fly down to overview
     this.rig.snap({ getTarget: () => ORIGIN, dist: this.systemView.maxDist() * 0.9, phi: 1.0 });
@@ -294,6 +297,7 @@ class App {
   exitToGalaxy(){
     if (this.mode === 'galaxy') return;
     this.hud.flash();
+    this.audio.ascend();
     const rec = this.systemRec;
     this.cancelMission();
     if (this.skyView){ this.skyView.dispose(); this.skyView = null; }
@@ -338,6 +342,7 @@ class App {
 
   focusPlanet(p){
     this.focus = p;
+    this.audio.select();
     this.rig.minDist = p.r * 2.2;
     this.rig.flyTo({ getTarget: () => p.group.position, dist: p.cfg.view, dur: 1.25 });
     const actions = [];
@@ -409,6 +414,7 @@ class App {
     if (this.mode !== 'system' || !p || p.isStar || !canDescend(p)) return;
     this.focus = p;
     this.hud.flash();
+    this.audio.jump();
     this.labels.clear();
     this.surfaceView = new SurfaceView(p, this.systemView.def.star);
     this.mode = 'surface';
@@ -426,6 +432,7 @@ class App {
     if (this.mode !== 'system' || !this.systemRec || this.systemRec.name !== 'SOL') return;
     this.focus = this.systemView.findBody('EARTH');   // you are standing on it
     this.hud.flash();
+    this.audio.jump();
     this.labels.clear();
     // ground pace: drop to ~30 sim-minutes/sec on entry, restore on exit
     this._preSkyRate = this.time.rate;
@@ -485,6 +492,7 @@ class App {
     if (this.mode !== 'surface') return;
     const p = this.focus || this.systemView.planets[0];
     this.hud.flash();
+    this.audio.back();
     this.surfaceView.dispose();
     this.surfaceView = null;
     this.labels.clear();
@@ -501,6 +509,7 @@ class App {
   focusStar(){
     const s = this.systemView.star;
     this.focus = s;
+    this.audio.select();
     this.rig.minDist = s.cfg.coreRadius * 2;
     this.rig.flyTo({ getTarget: () => ORIGIN, dist: s.cfg.coreRadius * 4.5, dur: 1.25 });
     this.hud.showPanel('STELLAR LOCK', s.cfg.name, s.cfg.cls, s.cfg.info);
@@ -508,6 +517,7 @@ class App {
   }
   systemOverview(){
     this.focus = null;
+    this.audio.back();
     this.rig.minDist = 6;
     this.rig.flyTo({ getTarget: () => ORIGIN, dist: this.systemView.overviewDist(), dur: 1.25 });
     this.hud.hidePanel();
@@ -599,6 +609,25 @@ class App {
     return info;
   }
 
+  /* project the hovered planet and wrap it in corner brackets */
+  _updateReticle(){
+    const r = document.getElementById('reticle');
+    const h = this.hovered;
+    if (!h || h.isStar || h.isCatalogStar || !h.group){ r.classList.remove('show'); return; }
+    const c = h.group.position;
+    const dist = this.camera.position.distanceTo(c);
+    const ang = Math.atan2(h.r * 1.15, dist);
+    const halfFov = (this.camera.fov * Math.PI / 180) / 2;
+    const px = (ang / halfFov) * (this.H / 2);
+    this._tmp.copy(c).project(this.camera);
+    if (this._tmp.z > 1){ r.classList.remove('show'); return; }
+    const box = Math.max(26, px * 2 + 14);
+    r.style.left = ((this._tmp.x * 0.5 + 0.5) * this.W) + 'px';
+    r.style.top = ((-this._tmp.y * 0.5 + 0.5) * this.H) + 'px';
+    r.style.width = box + 'px'; r.style.height = box + 'px';
+    if (!r.classList.contains('show')) r.classList.add('show');
+  }
+
   _onHover(x, y){
     if (this.mode === 'sky' || this.mode === 'surface') return;
     const hit = this._raycast(x, y);
@@ -607,8 +636,10 @@ class App {
       if (this.hovered.setHover) this.hovered.setHover(false);
       if (this.hovered.labelEntry) this.hovered.labelEntry.hovered = false;
     }
+    const isNew = hit && hit !== this.hovered;
     this.hovered = hit;
     if (hit){
+      if (isNew) this.audio.hover();
       if (hit.setHover) hit.setHover(true);
       if (hit.labelEntry) hit.labelEntry.hovered = true;
       this.hud.hover(x, y, hit.name);
@@ -651,6 +682,9 @@ class App {
     this.time.advance(dt);
     if (this.mode !== 'sky') this.rig.update(dt, this.now);
 
+    // reticle only lives in system mode; the system branch re-shows it
+    if (this.mode !== 'system') document.getElementById('reticle').classList.remove('show');
+
     const R = this.renderer;
     if (this.mode === 'sky'){
       this.skyView.update(this.time.simDays, this.time.rate);
@@ -675,6 +709,7 @@ class App {
     } else if (this.mode === 'system'){
       this.systemView.update(dt, this.time.simDays, this.now);
       this.labels.update(this.camera, this.W, this.H);
+      this._updateReticle();
 
       // refresh the event list once time overtakes it (throttled)
       this._evTick = (this._evTick || 0) + 1;

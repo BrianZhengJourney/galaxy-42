@@ -7,8 +7,6 @@ export class Hud {
   constructor(app){
     this.app = app;
     this.tickTimers = [];
-    this.audioCtx = null;
-    this.audioOn = false;
     this._wire();
   }
 
@@ -180,39 +178,15 @@ export class Hud {
     $('audioBtn').addEventListener('click', () => this._toggleAudio());
   }
 
-  /* ---- ambient hum: detuned sines + filtered noise, off by default ---- */
+  /* ---- ambient soundscape + UI sounds (see core AudioEngine) ---- */
   _toggleAudio(){
     const btn = $('audioBtn');
-    if (!this.audioOn){
-      try{
-        if (!this.audioCtx){
-          const AC = window.AudioContext || window.webkitAudioContext;
-          const ctx = this.audioCtx = new AC();
-          const master = ctx.createGain(); master.gain.value = 0.035;
-          master.connect(ctx.destination);
-          for (const f of [55, 55.7]){
-            const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
-            const g = ctx.createGain(); g.gain.value = 0.5;
-            o.connect(g); g.connect(master); o.start();
-          }
-          const len = ctx.sampleRate * 2;
-          const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-          const ch = buf.getChannelData(0);
-          for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
-          const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
-          const flt = ctx.createBiquadFilter(); flt.type = 'lowpass'; flt.frequency.value = 220;
-          const ng = ctx.createGain(); ng.gain.value = 0.25;
-          src.connect(flt); flt.connect(ng); ng.connect(master); src.start();
-          ctx._master = master;
-        }
-        this.audioCtx.resume();
-        this.audioCtx._master.gain.value = 0.035;
-        this.audioOn = true;
-        btn.textContent = 'AUDIO ▸ ON'; btn.classList.add('on');
-      }catch(e){ btn.textContent = 'AUDIO ▸ N/A'; }
+    const ok = this.app.audio.setEnabled(!this.app.audio.enabled);
+    if (!ok){ btn.textContent = 'AUDIO ▸ N/A'; return; }
+    if (this.app.audio.enabled){
+      btn.textContent = 'AUDIO ▸ ON'; btn.classList.add('on');
+      this.app.audio.select();
     } else {
-      this.audioCtx._master.gain.value = 0;
-      this.audioOn = false;
       btn.textContent = 'AUDIO ▸ OFF'; btn.classList.remove('on');
     }
   }

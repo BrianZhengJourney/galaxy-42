@@ -137,6 +137,21 @@ canvas{ display:block; }
 }
 .lbl.star{ color:rgba(255,214,160,.9); text-shadow:0 0 8px rgba(255,180,94,.45); }
 
+/* ---- targeting reticle: corner brackets around the hovered body ---- */
+#reticle{
+  position:fixed; z-index:8; pointer-events:none; display:none;
+  transform:translate(-50%,-50%); left:0; top:0;
+}
+#reticle.show{ display:block; animation:reticle-in .18s ease-out; }
+#reticle i{ position:absolute; width:9px; height:9px; border:1.5px solid var(--cyan);
+  box-shadow:0 0 6px rgba(98,230,255,.6); opacity:.9; }
+#reticle i:nth-child(1){ left:0;  top:0;  border-right:none; border-bottom:none; }
+#reticle i:nth-child(2){ right:0; top:0;  border-left:none;  border-bottom:none; }
+#reticle i:nth-child(3){ left:0;  bottom:0; border-right:none; border-top:none; }
+#reticle i:nth-child(4){ right:0; bottom:0; border-left:none;  border-top:none; }
+@keyframes reticle-in{ from{ opacity:0; transform:translate(-50%,-50%) scale(1.35); }
+  to{ opacity:1; transform:translate(-50%,-50%) scale(1); } }
+
 /* ---- minimap ---- */
 #mapFrame{
   position:fixed; left:20px; bottom:118px; z-index:9; pointer-events:none;
