@@ -8,8 +8,10 @@ Planet/Sun albedo, Earth night lights & clouds, and the Saturn ring are from the
 - Source: https://www.solarsystemscope.com/textures/
 - License: https://creativecommons.org/licenses/by/4.0/
 
-`8k_earth_daymap.jpg`, `8k_earth_nightmap.jpg`, `8k_earth_clouds.jpg`,
-`8k_mars.jpg`, `8k_jupiter.jpg`, `8k_saturn.jpg`, `8k_sun.jpg`,
+8K (high tier) and 2K (low tier) variants of the same maps — the app picks
+per device (see `js/core/quality.js`): `{8k,2k}_earth_daymap.jpg`,
+`{8k,2k}_earth_nightmap.jpg`, `{8k,2k}_earth_clouds.jpg`, `{8k,2k}_mars.jpg`,
+`{8k,2k}_jupiter.jpg`, `{8k,2k}_saturn.jpg`, `{8k,2k}_sun.jpg`,
 `8k_saturn_ring_alpha.png`, `2k_mercury.jpg`, `2k_moon.jpg`,
 `2k_venus_atmosphere.jpg`, `2k_uranus.jpg`, `2k_neptune.jpg`.
 

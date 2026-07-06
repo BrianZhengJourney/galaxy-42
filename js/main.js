@@ -20,6 +20,7 @@ import { STAR_CATALOG } from './data/starCatalog.js';
 import { generateSystem } from './procgen/system.js';
 import { Journal } from './core/journal.js';
 import { evictTextures } from './utils/assets.js';
+import { QualityManager, detectTier } from './core/quality.js';
 import { TourEngine } from './core/tour.js';
 import { TOURS } from './data/tours.js';
 import { Photometer } from './ui/photometer.js';
@@ -32,12 +33,12 @@ class App {
     this.W = window.innerWidth; this.H = window.innerHeight;
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    // cap DPR: at 2× the bloom + fragment cost quadruples (main heat source);
-    // 1.5 stays crisp for a big continuous-GPU-load saving
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.setSize(this.W, this.H);
     this.renderer.setClearColor(0x000000);   // true-black deep space
     document.getElementById('stage').appendChild(this.renderer.domElement);
+    // device tier + adaptive DPR/bloom (sets the initial pixel ratio)
+    this.quality = new QualityManager(this);
+    console.info('[fable-galaxy] render tier:', detectTier());
 
     this.camera = new THREE.PerspectiveCamera(52, this.W / this.H, 0.1, 4000);
     this.time = new TimeSystem();
@@ -175,6 +176,7 @@ class App {
         new THREE.Vector2(this.W, this.H), 0.45, 0.55, 0.62));
       composer.addPass(new OutputPass());
       this.composer = composer;
+      this.quality.apply();          // give the composer the current pixel ratio
     }catch(e){
       console.warn('bloom unavailable, using sprite glow only:', e && e.message);
       this.composer = null;
@@ -182,7 +184,7 @@ class App {
   }
 
   _renderMain(scene){
-    if (this.composer){
+    if (this.composer && this.quality.bloom){
       this.renderer.setViewport(0, 0, this.W, this.H);
       this.renderer.setScissorTest(false);
       this._renderPass.scene = scene;
@@ -685,6 +687,9 @@ class App {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     this.now = this.clock.elapsedTime;
 
+    // adaptive quality: only sample real, foreground frames
+    if (!document.hidden && dt > 0.004 && dt < 0.1) this.quality.sample(dt * 1000);
+
     this.time.advance(dt);
     if (this.mode !== 'sky') this.rig.update(dt, this.now);
 
@@ -759,8 +764,7 @@ class App {
     this.W = window.innerWidth; this.H = window.innerHeight;
     this.camera.aspect = this.W / this.H;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(this.W, this.H);
-    if (this.composer) this.composer.setSize(this.W, this.H);
+    this.quality.onResize();   // re-applies size at the current adaptive DPR
   }
 }
 
