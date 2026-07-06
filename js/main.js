@@ -19,6 +19,7 @@ import { SOL_SYSTEM } from './data/solData.js';
 import { STAR_CATALOG } from './data/starCatalog.js';
 import { generateSystem } from './procgen/system.js';
 import { Journal } from './core/journal.js';
+import { evictTextures } from './utils/assets.js';
 import { TourEngine } from './core/tour.js';
 import { TOURS } from './data/tours.js';
 import { Photometer } from './ui/photometer.js';
@@ -31,7 +32,9 @@ class App {
     this.W = window.innerWidth; this.H = window.innerHeight;
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    // cap DPR: at 2× the bloom + fragment cost quadruples (main heat source);
+    // 1.5 stays crisp for a big continuous-GPU-load saving
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.setSize(this.W, this.H);
     this.renderer.setClearColor(0x000000);   // true-black deep space
     document.getElementById('stage').appendChild(this.renderer.domElement);
@@ -244,6 +247,7 @@ class App {
     if (this.skyView){ this.skyView.dispose(); this.skyView = null; }
     if (this.surfaceView){ this.surfaceView.dispose(); this.surfaceView = null; }
     if (this.systemView) this.systemView.dispose();
+    evictTextures();          // free the previous system's real-imagery VRAM
     this.labels.clear();
     const def = rec.sol ? SOL_SYSTEM : generateSystem(rec);
     this.systemView = new SystemView(def, this.labels);
