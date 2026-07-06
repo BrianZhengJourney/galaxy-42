@@ -707,7 +707,9 @@ class App {
       this.surfaceView.update(dt, this.time.simDays);
       this._renderMain(this.surfaceView.scene);
     } else if (this.mode === 'system'){
-      this.systemView.update(dt, this.time.simDays, this.now);
+      this.camera.updateMatrixWorld();
+      this.camera.matrixWorldInverse.copy(this.camera.matrixWorld).invert();
+      this.systemView.update(dt, this.time.simDays, this.now, this.camera);
       this.labels.update(this.camera, this.W, this.H);
       this._updateReticle();
 

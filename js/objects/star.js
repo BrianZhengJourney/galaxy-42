@@ -48,7 +48,7 @@ export class CentralStar {
     this.name = starCfg.name;
     this.group.add(this.pick);
 
-    this.light = new THREE.PointLight(starCfg.color, 2.0, 0);
+    this.light = new THREE.PointLight(starCfg.color, 2.7, 0);
     this.light.decay = 0;   // r155+ defaults to physical 1/d² falloff — planets would go black
     this.light.color.lerp(new THREE.Color(0xffffff), 0.55);   // keep planets readable
     this.group.add(this.light);

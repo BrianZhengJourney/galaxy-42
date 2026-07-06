@@ -6,7 +6,8 @@ import * as THREE from 'three';
 import { makePlanetTexture, makeRingTexture } from '../utils/textures.js';
 import { displayPosition, heliocentric, julianDate } from '../data/ephemeris.js';
 import { loadTexture } from '../utils/assets.js';
-import { PLANET_TEXTURES, MOON_TEXTURE } from '../data/textureManifest.js';
+import { PLANET_TEXTURES, MOON_TEXTURE, MOON_BUMP } from '../data/textureManifest.js';
+import { applyRealTextures, buildAtmosphere, updatePlanetSun } from './planetMaterial.js';
 
 const J2000_EPOCH_MS = Date.UTC(2026, 6, 2);   // must match TimeSystem.EPOCH
 
@@ -28,30 +29,30 @@ export class Planet {
       emissive: new THREE.Color(cfg.glow ? (cfg.emissiveColor || '#ff5a22') : cfg.tex.base),
       emissiveIntensity: this.baseEmissive
     });
-    this.mesh = new THREE.Mesh(new THREE.SphereGeometry(cfg.r, 48, 32), this.mat);
+    // real bodies get denser geometry so normal-mapped relief reads at the limb
+    const real = PLANET_TEXTURES[cfg.name];
+    const seg = real ? 128 : 48, segH = real ? 64 : 32;
+    this.mesh = new THREE.Mesh(new THREE.SphereGeometry(cfg.r, seg, segH), this.mat);
     this.spin.add(this.mesh);
 
-    // real imagery for the Sol system: swap in when it arrives (procedural
-    // texture shows instantly meanwhile; a failed fetch just keeps it)
-    const real = PLANET_TEXTURES[cfg.name];
+    // real imagery for the Sol system: PBR maps swap in as they arrive
+    // (procedural texture shows instantly; a failed fetch just keeps it)
     if (real){
-      loadTexture(real.map, tex => {
-        // let sunlight reveal the real albedo — kill the procedural blue tint
-        this.mat.map = tex;
-        this.mat.emissive.set(0x000000);
-        this.baseEmissive = 0;
-        this.mat.emissiveIntensity = 0;
-        this.mat.needsUpdate = true;
-      });
+      applyRealTextures(this, real);
       if (real.clouds){
         const cmat = new THREE.MeshStandardMaterial({
-          color: 0xffffff, transparent: true, opacity: 0.9,
-          depthWrite: false, roughness: 1 });
-        this.clouds = new THREE.Mesh(new THREE.SphereGeometry(cfg.r * 1.012, 48, 32), cmat);
+          color: 0xffffff, transparent: true, opacity: 0.92,
+          depthWrite: false, roughness: 1, metalness: 0 });
+        this.clouds = new THREE.Mesh(new THREE.SphereGeometry(cfg.r * 1.015, 96, 64), cmat);
         this.spin.add(this.clouds);
         loadTexture(real.clouds, tex => {
           cmat.map = tex; cmat.alphaMap = tex; cmat.needsUpdate = true;
         });
+      }
+      if (real.atmosphere){
+        this.atmosphere = buildAtmosphere(cfg.r * (real.atmoScale || 1.06),
+          real.atmosphere, real.atmoStrength || 1.0);
+        this.spin.add(this.atmosphere);
       }
     }
 
@@ -76,15 +77,20 @@ export class Planet {
 
     this.moons = [];
     (cfg.moons || []).forEach((m, mi) => {
+      const realMoon = cfg.name === 'EARTH' && mi === 0;
       const mmat = new THREE.MeshStandardMaterial({ color: 0x9a948c, roughness: 1 });
-      const mm = new THREE.Mesh(new THREE.SphereGeometry(m.r, 24, 16), mmat);
+      const mm = new THREE.Mesh(new THREE.SphereGeometry(m.r, realMoon ? 96 : 24, realMoon ? 64 : 16), mmat);
       this.group.add(mm);
       this.moons.push({ mesh: mm, dist: m.dist, period: m.period, phase: mi * 2.1 });
-      // Earth's single moon gets the real lunar map
-      if (cfg.name === 'EARTH' && mi === 0)
+      // Earth's Moon: real 8K albedo + real LOLA/Kaguya elevation as relief
+      if (realMoon){
         loadTexture(MOON_TEXTURE, tex => {
           mmat.map = tex; mmat.color.set(0xffffff); mmat.needsUpdate = true;
         });
+        loadTexture(MOON_BUMP, tex => {
+          mmat.bumpMap = tex; mmat.bumpScale = 0.006; mmat.needsUpdate = true;
+        }, { srgb: false });
+      }
     });
 
     // invisible pick target so small planets are easy to click
@@ -152,6 +158,12 @@ export class Planet {
   }
 
   setHover(on){ this._hoverTarget = on ? 1 : 0; }
+
+  /* keep the day/night + atmosphere shaders pointed at the sun (view space) */
+  syncSun(camera){
+    if (this.atmosphere || (this.mat.userData && this.mat.userData.shader))
+      updatePlanetSun(this, camera);
+  }
 }
 
 /* orbit path for a Kepler body (S-stars): sample its eccentric ellipse */

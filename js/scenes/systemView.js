@@ -21,7 +21,9 @@ export class SystemView {
 
     this.star = new CentralStar(systemDef.star);
     this.scene.add(this.star.group);
-    this.scene.add(new THREE.AmbientLight(0x30425a, 0.5));
+    // low fill so the day/night terminator stays crisp (NASA-Eyes look);
+    // real night maps light the dark side, procedural worlds keep faint fill
+    this.scene.add(new THREE.AmbientLight(0x2a3a52, 0.32));
 
     this.planets = [];
     this.pickTargets = [this.star.pick];
@@ -68,9 +70,12 @@ export class SystemView {
     return this.planets.find(p => p.name === name) || null;
   }
 
-  update(dt, simDays, now){
+  update(dt, simDays, now, camera){
     this.star.update(simDays, now);
-    for (const p of this.planets) p.update(simDays, dt);
+    for (const p of this.planets){
+      p.update(simDays, dt);
+      if (camera) p.syncSun(camera);
+    }
     if (this.belt) this.belt.update(simDays);
     if (this.comet) this.comet.update(simDays);
     this.dust.rotation.y += dt * 0.004;
