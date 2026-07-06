@@ -3,10 +3,15 @@
 An interactive, multi-scale 3D galaxy explorer with a sci-fi cockpit aesthetic.
 Pure ES modules + [three.js](https://threejs.org) from a CDN import map, **no
 build step**. Procedural worlds are drawn on canvas at runtime; the real Sol
-system uses public [Solar System Scope](https://www.solarsystemscope.com/textures)
-imagery (CC BY 4.0, see [textures/CREDITS.md](textures/CREDITS.md)), synthesized
-WebAudio for the ambient soundscape and UI, and a small build script for the
-star catalogs.
+system is rendered to near-NASA-Eyes fidelity — 8K albedo, a Blue-Marble
+day/night shader with real city lights on the dark side, ocean-specular glint,
+and surface relief that casts shadow at the terminator (NASA LOLA lunar
+elevation; Mercury/Mars normals derived from albedo). Assets: public
+[Solar System Scope](https://www.solarsystemscope.com/textures) imagery (CC BY
+4.0), [three.js](https://github.com/mrdoob/three.js) Earth normal/specular
+(MIT), and NASA SVS lunar elevation (public domain) — see
+[textures/CREDITS.md](textures/CREDITS.md). Ambient soundscape and UI are
+synthesized WebAudio; the star catalogs come from a small build script.
 
 ## Running it
 
