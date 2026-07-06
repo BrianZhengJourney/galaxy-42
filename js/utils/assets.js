@@ -14,7 +14,8 @@ export function loadTexture(path, onLoad, { srgb = true } = {}){
     path,
     tex => {
       if (srgb && 'colorSpace' in tex) tex.colorSpace = THREE.SRGBColorSpace;
-      tex.anisotropy = 4;
+      tex.anisotropy = 8;                     // sharper at oblique/low-orbit angles
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
       cache.set(path, tex);
       onLoad(tex);
     },

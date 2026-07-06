@@ -1,16 +1,23 @@
-/* Low orbit — the third scale. A displaced, vertex-colored terrain sphere
-   generated from seeded fBm noise, with water shell, cloud layer and a
-   rim-glow atmosphere shader, all keyed to the planet's type. */
+/* Low orbit — the third scale.
+   Real Sol bodies reuse the SAME cached 8K PBR textures as the orbital view
+   (zero extra download): a high-detail textured globe with relief, ocean
+   glint, clouds, night-side city lights and an atmosphere limb. Procedural
+   exoplanets — which have no real imagery — keep a displaced fBm terrain
+   sphere. Zoom is capped to orbital altitude so the 8K maps stay crisp;
+   true ground-level detail would require tiled streaming (out of scope). */
 
 import * as THREE from 'three';
 import { makeNoise3D } from '../utils/noise.js';
 import { hashStr, mulberry } from '../utils/rng.js';
 import { buildStarSphere } from '../objects/starfield.js';
 import { canvasTex } from '../utils/textures.js';
+import { loadTexture } from '../utils/assets.js';
+import { PLANET_TEXTURES } from '../data/textureManifest.js';
+import { applyRealTextures, buildAtmosphere } from '../objects/planetMaterial.js';
 
 const R = 20;
 
-/* height-color ramps per surface type: [t, hex] stops over normalized height */
+/* height-color ramps per surface type (procedural worlds) */
 const RAMPS = {
   rocky:    [[-1, '#4a443c'], [0, '#7a736a'], [0.5, '#9a938a'], [1, '#d8d2c8']],
   cratered: [[-1, '#403c36'], [0, '#6e6a62'], [0.5, '#8f8a84'], [1, '#c8c2b8']],
@@ -45,16 +52,67 @@ function rampColor(stops, t, out){
 export class SurfaceView {
   constructor(planet, starCfg){
     this.planet = planet;
-    const type = RAMPS[planet.cfg.tex.type] ? planet.cfg.tex.type : 'rocky';
     this.scene = new THREE.Scene();
     this.scene.add(buildStarSphere('orbit:' + planet.name));
 
     this.spin = new THREE.Group();
     this.scene.add(this.spin);
+    this.realMat = null;
+    this.atmoMat = null;
+    this._sunViewDir = new THREE.Vector3(0, 0, 1);
+    this._sunWorld = new THREE.Vector3(80, 30, 50).normalize();   // matches key light
 
-    /* ---- displaced terrain ---- */
+    // real Sol bodies (in the texture manifest) → reuse the cached PBR maps
+    const real = PLANET_TEXTURES[planet.cfg.name];
+    if (real) this._buildReal(planet, real);
+    else this._buildProcedural(planet);
+
+    /* ---- key light (the star) + low fill for a crisp terminator ---- */
+    const key = new THREE.DirectionalLight(starCfg ? starCfg.color : 0xfff0d5, 2.6);
+    key.position.set(80, 30, 50);
+    this.scene.add(key);
+    this.scene.add(new THREE.AmbientLight(0x243448, real ? 0.4 : 0.7));
+
+    this.pickTargets = [];
+  }
+
+  /* ---------- real body: the same globe as orbit, up close ---------- */
+  _buildReal(planet, real){
+    const mat = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0 });
+    mat.userData.keepMaps = true;                 // cached/shared — don't dispose
+    const globe = new THREE.Mesh(new THREE.SphereGeometry(R, 256, 160), mat);
+    this.spin.add(globe);
+    this.terrain = globe;
+    this.realMat = mat;
+
+    // load the identical maps the orbital planet used (already in cache → instant)
+    applyRealTextures({ mat, baseEmissive: 0 }, real);
+
+    if (real.clouds){
+      const cmat = new THREE.MeshStandardMaterial({
+        color: 0xffffff, transparent: true, opacity: 0.9,
+        depthWrite: false, roughness: 1 });
+      cmat.userData.keepMaps = true;
+      this.clouds = new THREE.Mesh(new THREE.SphereGeometry(R * 1.015, 128, 80), cmat);
+      this.spin.add(this.clouds);
+      loadTexture(real.clouds, tex => {
+        cmat.map = tex; cmat.alphaMap = tex; cmat.needsUpdate = true;
+      });
+    }
+    if (real.atmosphere){
+      // a touch stronger at this scale so the limb reads
+      this.atmoMesh = buildAtmosphere(R * 1.03, real.atmosphere,
+        (real.atmoStrength || 1) * 1.15);
+      this.atmoMat = this.atmoMesh.userData.atmoMat;
+      this.scene.add(this.atmoMesh);
+    }
+  }
+
+  /* ---------- procedural world: displaced fBm terrain ---------- */
+  _buildProcedural(planet){
+    const type = RAMPS[planet.cfg.tex.type] ? planet.cfg.tex.type : 'rocky';
     const fbm = makeNoise3D(hashStr('terrain:' + planet.name));
-    const geo = new THREE.SphereGeometry(R, 168, 112);
+    const geo = new THREE.SphereGeometry(R, 220, 140);
     const pos = geo.attributes.position;
     const col = new Float32Array(pos.count * 3);
     const v = new THREE.Vector3(), c = new THREE.Color();
@@ -62,15 +120,16 @@ export class SurfaceView {
     const water = HAS_WATER[type];
     for (let i = 0; i < pos.count; i++){
       v.fromBufferAttribute(pos, i).normalize();
-      let h = (fbm(v.x * 2.6, v.y * 2.6, v.z * 2.6) - 0.5) * 2;      // -1..1
-      h += (fbm(v.x * 9, v.y * 9, v.z * 9, 3) - 0.5) * 0.6;          // detail
-      const polar = Math.pow(Math.abs(v.y), 6);                      // ice caps
+      let h = (fbm(v.x * 2.6, v.y * 2.6, v.z * 2.6) - 0.5) * 2;
+      h += (fbm(v.x * 9, v.y * 9, v.z * 9, 3) - 0.5) * 0.6;
+      h += (fbm(v.x * 22, v.y * 22, v.z * 22, 2) - 0.5) * 0.22;      // fine detail
+      const polar = Math.pow(Math.abs(v.y), 6);
       const land = water ? Math.max(h, -0.12) : h;
       pos.setXYZ(i, v.x * (R + land * amp), v.y * (R + land * amp), v.z * (R + land * amp));
       rampColor(RAMPS[type], h, c);
       if ((type === 'earth' || type === 'ice' || type === 'mars') && polar > 0.4)
         c.lerp(new THREE.Color('#f4f8fb'), Math.min(1, polar));
-      col[i*3] = c.r; col[i*3+1] = c.g; col[i*3+2] = c.b;
+      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
     }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     geo.computeVertexNormals();
@@ -81,14 +140,11 @@ export class SurfaceView {
     }));
     this.spin.add(this.terrain);
 
-    /* ---- water shell ---- */
-    if (water){
+    if (water)
       this.spin.add(new THREE.Mesh(new THREE.SphereGeometry(R - 0.02, 96, 64),
         new THREE.MeshStandardMaterial({ color: 0x14406e, roughness: 0.35, metalness: 0,
           transparent: true, opacity: 0.92 })));
-    }
 
-    /* ---- cloud layer ---- */
     if (HAS_CLOUDS[type]){
       const rnd = mulberry(hashStr('clouds:' + planet.name));
       const cloudTex = canvasTex(512, 256, (g, w, h) => {
@@ -107,56 +163,40 @@ export class SurfaceView {
       this.scene.add(this.clouds);
     }
 
-    /* ---- atmosphere rim glow ---- */
     const atmo = ATMO[type];
     if (atmo){
-      const ac = new THREE.Color(atmo);
-      this.scene.add(new THREE.Mesh(new THREE.SphereGeometry(R * 1.07, 96, 64),
-        new THREE.ShaderMaterial({
-          uniforms: { atmoColor: { value: new THREE.Vector3(ac.r, ac.g, ac.b) } },
-          vertexShader: `
-            varying vec3 vN; varying vec3 vV;
-            void main(){
-              vN = normalize(normalMatrix * normal);
-              vec4 mv = modelViewMatrix * vec4(position, 1.0);
-              vV = normalize(-mv.xyz);
-              gl_Position = projectionMatrix * mv;
-            }`,
-          fragmentShader: `
-            uniform vec3 atmoColor;
-            varying vec3 vN; varying vec3 vV;
-            void main(){
-              float rim = pow(1.0 - abs(dot(vN, vV)), 2.6);
-              gl_FragColor = vec4(atmoColor, rim * 0.85);
-            }`,
-          transparent: true, blending: THREE.AdditiveBlending,
-          depthWrite: false, side: THREE.FrontSide
-        })));
+      this.atmoMesh = buildAtmosphere(R * 1.06, atmo, 0.85);
+      this.atmoMat = this.atmoMesh.userData.atmoMat;
+      this.scene.add(this.atmoMesh);
     }
-
-    /* ---- key light (the star) + fill ---- */
-    const key = new THREE.DirectionalLight(starCfg ? starCfg.color : 0xfff0d5, 2.4);
-    key.position.set(80, 30, 50);
-    this.scene.add(key);
-    this.scene.add(new THREE.AmbientLight(0x243448, 0.7));
-
-    this.pickTargets = [];
   }
 
+  // orbital altitudes: min kept high so the 8K maps stay sharp (no tile streaming)
   overviewDist(){ return R * 2.4; }
-  minDist(){ return R * 1.22; }
+  minDist(){ return R * 1.5; }
   maxDist(){ return R * 5.2; }
 
-  update(dt, simDays){
+  update(dt, simDays, camera){
     this.spin.rotation.y = 2 * Math.PI * simDays / this.planet.cfg.rotP;
     if (this.clouds) this.clouds.rotation.y += dt * 0.01;
+    // point the night-lights + atmosphere shaders at the fixed key light
+    if (camera && (this.atmoMat || (this.realMat && this.realMat.userData.shader))){
+      this._sunViewDir.copy(this._sunWorld).transformDirection(camera.matrixWorldInverse);
+      if (this.atmoMat) this.atmoMat.uniforms.uSunViewDir.value.copy(this._sunViewDir);
+      if (this.realMat && this.realMat.userData.shader)
+        this.realMat.userData.shader.uniforms.uSunViewDir.value.copy(this._sunViewDir);
+    }
   }
 
   dispose(){
     this.scene.traverse(obj => {
       if (obj.geometry) obj.geometry.dispose();
       const mats = Array.isArray(obj.material) ? obj.material : (obj.material ? [obj.material] : []);
-      for (const m of mats){ if (m.map) m.map.dispose(); m.dispose(); }
+      for (const m of mats){
+        // shared cached textures belong to the asset cache — never dispose them
+        if (m.map && !(m.userData && m.userData.keepMaps)) m.map.dispose();
+        m.dispose();
+      }
     });
     this.scene.clear();
   }

@@ -704,7 +704,9 @@ class App {
       }
       this._renderMain(this.skyView.scene);
     } else if (this.mode === 'surface'){
-      this.surfaceView.update(dt, this.time.simDays);
+      this.camera.updateMatrixWorld();
+      this.camera.matrixWorldInverse.copy(this.camera.matrixWorld).invert();
+      this.surfaceView.update(dt, this.time.simDays, this.camera);
       this._renderMain(this.surfaceView.scene);
     } else if (this.mode === 'system'){
       this.camera.updateMatrixWorld();
