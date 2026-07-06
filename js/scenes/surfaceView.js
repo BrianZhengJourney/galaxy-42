@@ -12,7 +12,7 @@ import { hashStr, mulberry } from '../utils/rng.js';
 import { buildStarSphere } from '../objects/starfield.js';
 import { canvasTex } from '../utils/textures.js';
 import { loadTexture } from '../utils/assets.js';
-import { PLANET_TEXTURES } from '../data/textureManifest.js';
+import { PLANET_TEXTURES, MOON_SURFACE } from '../data/textureManifest.js';
 import { applyRealTextures, buildAtmosphere } from '../objects/planetMaterial.js';
 
 const R = 20;
@@ -62,8 +62,8 @@ export class SurfaceView {
     this._sunViewDir = new THREE.Vector3(0, 0, 1);
     this._sunWorld = new THREE.Vector3(80, 30, 50).normalize();   // matches key light
 
-    // real Sol bodies (in the texture manifest) → reuse the cached PBR maps
-    const real = PLANET_TEXTURES[planet.cfg.name];
+    // real Sol bodies (planets in the manifest, or Luna) → real cached maps
+    const real = planet.cfg.name === 'LUNA' ? MOON_SURFACE : PLANET_TEXTURES[planet.cfg.name];
     if (real) this._buildReal(planet, real);
     else this._buildProcedural(planet);
 

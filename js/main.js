@@ -145,7 +145,8 @@ class App {
     if (!this.systemRec || this.systemRec.name !== rec.name || this.mode !== 'system')
       this.enterSystem(rec, true);
     if (bodySlug && this.systemView){
-      const body = this.systemView.planets.find(p => this._bodySlug(p) === bodySlug);
+      const body = this.systemView.planets.find(p => this._bodySlug(p) === bodySlug)
+        || this.systemView.satellites.map(s => s.body).find(b => this._bodySlug(b) === bodySlug);
       if (body){
         this.focusPlanet(body);
         if (orbit === 'sky' && body.name === 'EARTH') this.enterSky();
@@ -350,9 +351,10 @@ class App {
       actions.push({ label: '▸ NIGHT SKY · SURFACE VIEW', cb: () => this.enterSky() });
     if (canDescend(p))
       actions.push({ label: '▸ ENTER LOW ORBIT', cb: () => this.enterSurface(p) });
-    if (!this.mission && this.systemView.planets.length > 1)
+    if (!p.isMoon && !this.mission && this.systemView.planets.length > 1)
       actions.push({ label: '▸ PLOT TRANSFER FROM HERE', cb: () => this._armTransfer(p) });
-    this.hud.showPanel('TARGET LOCK', p.name, p.cfg.cls, p.cfg.info, actions);
+    this.hud.showPanel(p.isMoon ? 'SATELLITE LOCK' : 'TARGET LOCK',
+      p.name, p.cfg.cls, p.cfg.info, actions);
     this._crumbs();
   }
 
@@ -557,7 +559,7 @@ class App {
     const hit = this._raycast(x, y);
     if (this.mode === 'system'){
       // armed transfer: the next planet clicked becomes the destination
-      if (this.transferOrigin && hit && !hit.isStar && hit !== this.transferOrigin)
+      if (this.transferOrigin && hit && !hit.isStar && !hit.isMoon && hit !== this.transferOrigin)
         return this._launchMission(this.transferOrigin, hit);
       if (this.transferOrigin && !hit){
         this.transferOrigin = null;

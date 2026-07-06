@@ -76,13 +76,15 @@ export class Planet {
     }
 
     this.moons = [];
+    this.satellites = [];        // focusable moons (Luna) with pick targets
     (cfg.moons || []).forEach((m, mi) => {
       const realMoon = cfg.name === 'EARTH' && mi === 0;
       const mmat = new THREE.MeshStandardMaterial({ color: 0x9a948c, roughness: 1 });
       const mm = new THREE.Mesh(new THREE.SphereGeometry(m.r, realMoon ? 96 : 24, realMoon ? 64 : 16), mmat);
       this.group.add(mm);
       this.moons.push({ mesh: mm, dist: m.dist, period: m.period, phase: mi * 2.1 });
-      // Earth's Moon: real 8K albedo + real LOLA/Kaguya elevation as relief
+      // Earth's Moon: real 2K albedo + real LOLA/Kaguya elevation as relief,
+      // and a clickable, descendable body of its own
       if (realMoon){
         loadTexture(MOON_TEXTURE, tex => {
           mmat.map = tex; mmat.color.set(0xffffff); mmat.needsUpdate = true;
@@ -90,6 +92,32 @@ export class Planet {
         loadTexture(MOON_BUMP, tex => {
           mmat.bumpMap = tex; mmat.bumpScale = 0.006; mmat.needsUpdate = true;
         }, { srgb: false });
+
+        const moonBody = {
+          name: 'LUNA', isMoon: true, r: m.r, mesh: mm, mat: mmat,
+          group: new THREE.Group(),          // world-position handle (synced by SystemView)
+          baseEmissive: 0, _hoverAmt: 0, _hoverTarget: 0,
+          cfg: {
+            name: 'LUNA', tex: { type: 'cratered', base: '#9a948c' }, rotP: m.period,
+            cls: 'NATURAL SATELLITE', view: Math.max(2.4, m.r * 8),
+            info: {
+              'RADIUS': '1,737.4 km', 'MASS': '7.342 ×10²² kg', 'SURFACE TEMP': '−20 °C (avg)',
+              'ORBITAL PERIOD': '27.32 d', 'ROTATION': 'TIDALLY LOCKED', 'PARENT': 'EARTH'
+            }
+          },
+          setHover(on){
+            this._hoverTarget = on ? 1 : 0;
+            mmat.emissive.set(on ? 0x8a94a8 : 0x000000);
+            mmat.emissiveIntensity = on ? 0.4 : 0; mmat.needsUpdate = true;
+          },
+          syncSun(){}
+        };
+        const mpick = new THREE.Mesh(
+          new THREE.SphereGeometry(Math.max(m.r * 2.4, 0.8), 12, 8),
+          new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+        mpick.userData.body = moonBody;
+        mm.add(mpick);                        // pick rides with the moon
+        this.satellites.push({ body: moonBody, pick: mpick, mesh: mm });
       }
     });
 

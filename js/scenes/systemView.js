@@ -26,6 +26,7 @@ export class SystemView {
     this.scene.add(new THREE.AmbientLight(0x2a3a52, 0.32));
 
     this.planets = [];
+    this.satellites = [];
     this.pickTargets = [this.star.pick];
     for (const cfg of systemDef.bodies){
       this.scene.add(cfg.eph ? buildEphemerisOrbit(cfg)
@@ -35,6 +36,12 @@ export class SystemView {
       this.scene.add(p.group);
       this.planets.push(p);
       this.pickTargets.push(p.pick);
+      // focusable moons (Luna): track world position + make clickable
+      for (const sat of (p.satellites || [])){
+        this.scene.add(sat.body.group);
+        this.pickTargets.push(sat.pick);
+        this.satellites.push(sat);
+      }
     }
     this.registerLabels();
 
@@ -76,6 +83,8 @@ export class SystemView {
       p.update(simDays, dt);
       if (camera) p.syncSun(camera);
     }
+    // keep each focusable moon's world-position handle current
+    for (const sat of this.satellites) sat.mesh.getWorldPosition(sat.body.group.position);
     if (this.belt) this.belt.update(simDays);
     if (this.comet) this.comet.update(simDays);
     this.dust.rotation.y += dt * 0.004;

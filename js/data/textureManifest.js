@@ -44,3 +44,8 @@ export const PLANET_TEXTURES = {
 export const MOON_TEXTURE = T + '2k_moon.jpg';
 export const MOON_BUMP    = T + 'moon_dem.png';   // real LOLA/Kaguya elevation
 export const SUN_TEXTURE  = T + '8k_sun.jpg';
+
+/* the Moon as a descendable body: albedo + strong real-elevation relief.
+   The Moon is all crater relief, so the DEM (not albedo res) carries the
+   fidelity — no extra download beyond the maps the orbital view already uses. */
+export const MOON_SURFACE = { map: MOON_TEXTURE, bump: MOON_BUMP, bumpScale: 0.32 };
