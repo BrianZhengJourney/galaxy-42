@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { buildStarSphere } from '../objects/starfield.js';
 import { buildExhibit, buildImagePlate, buildImageVolume } from '../procgen/exhibits.js';
-import { buildPillarsOfCreation } from '../procgen/pillars.js';
+import { buildFeaturedExhibit } from '../procgen/featured/registry.js';
 import { landmarkImage } from '../data/landmarkImages.js';
 import { landmarkImageIR } from '../data/landmarkImagesIR.js';
 
@@ -19,14 +19,13 @@ export class LandmarkView {
     // deep-sky photos (nebulae, remnants, galaxies) are reconstructed as real 3D
     // particle-cloud volumes you can orbit; diagram-like plates stay flat.
     const img = landmarkImage(entry.id);
-    const volumetric = !!img && ['NEBULA', 'SUPERNOVA', 'GALAXY'].includes(entry.category);
-    this.exhibit = entry.id === 'pillars-of-creation' && img
-                 ? buildPillarsOfCreation(entry, img.file)
-                 : volumetric ? buildImageVolume(entry, img.file)
-                 : img ? buildImagePlate(entry, img.file)
-                 : buildExhibit(entry);
-    this.hasImage = !!img;
     const ir = landmarkImageIR(entry.id);
+    const volumetric = !!img && ['NEBULA', 'SUPERNOVA', 'GALAXY'].includes(entry.category);
+    this.exhibit = buildFeaturedExhibit({ entry, image: img, infrared: ir })
+                 || (volumetric ? buildImageVolume(entry, img.file)
+                 : img ? buildImagePlate(entry, img.file)
+                 : buildExhibit(entry));
+    this.hasImage = !!img;
     this.imageCredit = img ? (img.credit + (ir ? ' · IR: ' + ir.credit : '') +
       (this.exhibit.modelCredit ? ' · ' + this.exhibit.modelCredit : '')) : null;
     this.scene.add(this.exhibit.group);
@@ -38,6 +37,7 @@ export class LandmarkView {
     this.scene.add(new THREE.AmbientLight(0x33425a, 0.6));
 
     this.pickTargets = [];
+    this._disposed = false;
   }
 
   get hasIR(){ return this.exhibit.hasIR === true; }
@@ -59,11 +59,24 @@ export class LandmarkView {
   update(dt, camera){ if (this.exhibit.update) this.exhibit.update(dt, camera); }
 
   dispose(){
+    if (this._disposed) return;
+    this._disposed = true;
     if (this.exhibit.dispose) this.exhibit.dispose();
+    const geometries = new Set(), materials = new Set(), textures = new Set();
     this.scene.traverse(obj => {
-      if (obj.geometry) obj.geometry.dispose();
+      if (obj.geometry && !geometries.has(obj.geometry)){
+        geometries.add(obj.geometry); obj.geometry.dispose();
+      }
       const mats = Array.isArray(obj.material) ? obj.material : (obj.material ? [obj.material] : []);
-      for (const m of mats){ if (m.map) m.map.dispose(); m.dispose(); }
+      for (const m of mats){
+        if (materials.has(m)) continue;
+        materials.add(m);
+        const sharedMap = m.map && m.map.userData && m.map.userData.shared;
+        if (m.map && !textures.has(m.map) && !sharedMap && !(m.userData && m.userData.keepMaps)){
+          textures.add(m.map); m.map.dispose();
+        }
+        m.dispose();
+      }
     });
     this.scene.clear();
   }

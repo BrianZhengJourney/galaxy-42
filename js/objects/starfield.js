@@ -8,7 +8,10 @@ import { makeGlowTexture } from '../utils/textures.js';
 /* shared soft round sprite so near-camera points don't render as squares */
 let _dot = null;
 export function dotTexture(){
-  if (!_dot) _dot = makeGlowTexture('rgba(255,255,255,1)', 'rgba(255,255,255,.35)', 64);
+  if (!_dot){
+    _dot = makeGlowTexture('rgba(255,255,255,1)', 'rgba(255,255,255,.35)', 64);
+    _dot.userData.shared = true;
+  }
   return _dot;
 }
 

@@ -8,6 +8,7 @@ import { heliocentric, julianDate } from '../js/data/ephemeris.js';
 import { generateSystem } from '../js/procgen/system.js';
 import { predictEvents } from '../js/core/events.js';
 import { Journal } from '../js/core/journal.js';
+import { ResourceScope } from '../js/procgen/featured/resourceScope.js';
 import { mulberry, hashStr, weighted } from '../js/utils/rng.js';
 import { STAR_CATALOG } from '../js/data/starCatalog.js';
 import { SOL_BODIES } from '../js/data/solData.js';
@@ -38,6 +39,26 @@ test('journal migrates the legacy brand key without losing visits', () => {
     if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
     else delete globalThis.localStorage;
   }
+});
+
+test('featured resource scopes dispose once and stop late callbacks', () => {
+  const scope = new ResourceScope('test-featured');
+  let disposed = 0, calls = 0;
+  const resource = { dispose(){ disposed += 1; } };
+  scope.own(resource);
+  scope.own(resource);
+  const guarded = scope.guard(() => { calls += 1; });
+
+  guarded();
+  scope.dispose();
+  scope.dispose();
+  guarded();
+
+  assert.equal(disposed, 1);
+  assert.equal(calls, 1);
+  let lateCleanup = 0;
+  scope.defer(() => { lateCleanup += 1; });
+  assert.equal(lateCleanup, 1);
 });
 
 /* ---------------- ephemeris ---------------- */

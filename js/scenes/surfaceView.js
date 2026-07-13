@@ -194,7 +194,8 @@ export class SurfaceView {
       const mats = Array.isArray(obj.material) ? obj.material : (obj.material ? [obj.material] : []);
       for (const m of mats){
         // shared cached textures belong to the asset cache — never dispose them
-        if (m.map && !(m.userData && m.userData.keepMaps)) m.map.dispose();
+        const sharedMap = m.map && m.map.userData && m.map.userData.shared;
+        if (m.map && !sharedMap && !(m.userData && m.userData.keepMaps)) m.map.dispose();
         m.dispose();
       }
     });

@@ -97,7 +97,7 @@ export class SystemView {
       if (obj.geometry) obj.geometry.dispose();
       const mats = Array.isArray(obj.material) ? obj.material : (obj.material ? [obj.material] : []);
       for (const m of mats){
-        if (m.map) m.map.dispose();
+        if (m.map && !(m.map.userData && m.map.userData.shared)) m.map.dispose();
         m.dispose();
       }
     });
