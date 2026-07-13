@@ -57,7 +57,9 @@ export class Planet {
     }
 
     if (cfg.rings){
-      const inner = cfg.r * 1.35, outer = cfg.r * 2.35;
+      const ringCfg = typeof cfg.rings === 'object' ? cfg.rings : {};
+      const inner = cfg.r * (ringCfg.inner || 1.35);
+      const outer = cfg.r * (ringCfg.outer || 2.35);
       const rg = new THREE.RingGeometry(inner, outer, 96, 1);
       // remap UVs radially so the 1D band texture wraps correctly
       const p = rg.attributes.position, uv = rg.attributes.uv, v = new THREE.Vector3();
@@ -67,7 +69,8 @@ export class Planet {
       }
       const rmat = new THREE.MeshBasicMaterial({
         map: makeRingTexture(cfg.name), side: THREE.DoubleSide,
-        transparent: true, opacity: 0.9, depthWrite: false });
+        color: ringCfg.color || 0xffffff,
+        transparent: true, opacity: ringCfg.opacity ?? 0.9, depthWrite: false });
       const ring = new THREE.Mesh(rg, rmat);
       ring.rotation.x = -Math.PI / 2;
       this.spin.add(ring);

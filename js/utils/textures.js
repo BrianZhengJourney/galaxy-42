@@ -202,6 +202,28 @@ export function makeStarTexture(hexBright, hexDeep, seedStr){
 export function makeRingTexture(seedStr){
   const rnd = mulberry(hashStr(seedStr || 'rings'));
   return canvasTex(256, 4, (g, w, h) => {
+    // The ice giants have sparse, narrow ring systems rather than Saturn's
+    // broad bright disk. Positions are normalized across each body's configured
+    // inner/outer radii so the strongest observed bands land in the right order.
+    const narrow = seedStr === 'URANUS'
+      ? [[.01, .22, 1], [.30, .28, 1], [.33, .24, 1], [.36, .24, 1],
+         [.52, .42, 1], [.59, .36, 1], [.70, .30, 1], [.73, .36, 1],
+         [.78, .34, 1], [.92, .24, 1], [.96, .70, 2]]
+      : seedStr === 'NEPTUNE'
+        ? [[.01, .22, 1], [.54, .50, 1], [.63, .16, 6], [.73, .24, 1], [.99, .72, 2]]
+        : null;
+    if (narrow){
+      for (const [position, alpha, width] of narrow){
+        const x = Math.max(0, Math.min(w - width, Math.round(position * (w - 1))));
+        const edge = g.createLinearGradient(x, 0, x + width, 0);
+        edge.addColorStop(0, `rgba(225,235,240,${(alpha * .45).toFixed(3)})`);
+        edge.addColorStop(.5, `rgba(245,250,252,${alpha.toFixed(3)})`);
+        edge.addColorStop(1, `rgba(225,235,240,${(alpha * .45).toFixed(3)})`);
+        g.fillStyle = edge;
+        g.fillRect(x, 0, Math.max(1, width), h);
+      }
+      return;
+    }
     for (let x = 0; x < w; x++){
       const t = x / w;
       let a = 0.15 + 0.75 * Math.pow(Math.abs(Math.sin(t*26) * Math.sin(t*7.3)), 0.6);

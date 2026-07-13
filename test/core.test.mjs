@@ -10,6 +10,7 @@ import { predictEvents } from '../js/core/events.js';
 import { Journal } from '../js/core/journal.js';
 import { mulberry, hashStr, weighted } from '../js/utils/rng.js';
 import { STAR_CATALOG } from '../js/data/starCatalog.js';
+import { SOL_BODIES } from '../js/data/solData.js';
 
 const rec = name => STAR_CATALOG.find(r => r.name === name);
 
@@ -217,6 +218,17 @@ test('constellation lines cover the sky in valid coordinates', () => {
     }
 });
 
+test('outer planet data exposes current moon and ring facts', () => {
+  const bodies = new Map(SOL_BODIES.map(body => [body.name, body]));
+  assert.equal(Number(bodies.get('SATURN').info.MOONS), 274);
+  for (const name of ['SATURN', 'URANUS', 'NEPTUNE']){
+    const rings = bodies.get(name).rings;
+    assert.ok(rings && typeof rings === 'object', name + ': missing structured ring config');
+    assert.ok(rings.inner > 1 && rings.outer > rings.inner, name + ': invalid ring radii');
+    assert.ok(rings.opacity > 0 && rings.opacity <= 1, name + ': invalid ring opacity');
+  }
+});
+
 /* ---------------- visual field stories ---------------- */
 
 test('every featured landmark resolves to a curated catalog entry', () => {
@@ -238,6 +250,27 @@ test('curated field stories have complete, selectable milestones', () => {
     assert.ok(ids.has(story.defaultMoment), story.summary + ': invalid default moment');
     for (const moment of story.moments){
       assert.ok(moment.date && moment.kind && moment.title && moment.text, moment.id);
+      assert.match(moment.source, /^https:\/\//, moment.id + ': invalid source');
+      assert.ok(moment.visual && typeof moment.visual === 'object', moment.id + ': missing visual');
+    }
+  }
+});
+
+test('every Sol planet has six complete, unique timeline moments', () => {
+  const keys = [
+    'SOL:MERCURY', 'SOL:VENUS', 'SOL:EARTH', 'SOL:MARS',
+    'SOL:JUPITER', 'SOL:SATURN', 'SOL:URANUS', 'SOL:NEPTUNE',
+  ];
+  for (const key of keys){
+    const story = BODY_EXPERIENCES[key];
+    assert.ok(story, key + ': missing experience');
+    assert.equal(story.moments.length, 6, key + ': expected six moments');
+    const ids = new Set(story.moments.map(moment => moment.id));
+    assert.equal(ids.size, 6, key + ': duplicate moment id');
+    assert.ok(ids.has(story.defaultMoment), key + ': invalid default moment');
+    for (const moment of story.moments){
+      assert.ok(moment.id && moment.date && moment.kind, key + ': incomplete identity');
+      assert.ok(moment.title && moment.text, moment.id + ': incomplete copy');
       assert.match(moment.source, /^https:\/\//, moment.id + ': invalid source');
       assert.ok(moment.visual && typeof moment.visual === 'object', moment.id + ': missing visual');
     }
