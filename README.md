@@ -17,17 +17,35 @@ elevation; Mercury/Mars normals derived from albedo). Assets: public
 [textures/CREDITS.md](textures/CREDITS.md). Ambient soundscape and UI are
 synthesized WebAudio; the star catalogs come from a small build script.
 
-## Running it
+## Running and checking it
 
-Serve the folder with any static file server and open `index.html`:
+Open the whole repository folder in Cursor, then start the no-cache local
+server from Cursor's terminal:
 
 ```sh
 cd <clone-folder>
 npm start
-# → http://localhost:8741/
+# open → http://127.0.0.1:8741/
 ```
 
-(Modules can't load over `file://`, so a server is required.)
+Keep that terminal running. Use a second terminal for the automated checks:
+
+```sh
+npm test
+```
+
+The five dedicated field exhibits have direct preview URLs:
+
+- `http://127.0.0.1:8741/#/landmark/pillars-of-creation`
+- `http://127.0.0.1:8741/#/landmark/carina-nebula`
+- `http://127.0.0.1:8741/#/landmark/crab-nebula`
+- `http://127.0.0.1:8741/#/landmark/m87-black-hole-image`
+- `http://127.0.0.1:8741/#/landmark/pale-blue-dot`
+
+Drag to inspect depth, click every timeline milestone, and resize the browser
+to check mobile layout. Press `Ctrl+C` in the server terminal when finished.
+ES modules cannot load correctly over `file://`, so opening `index.html`
+directly is not sufficient.
 
 ## What it is
 
