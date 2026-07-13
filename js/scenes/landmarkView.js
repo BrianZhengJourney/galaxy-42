@@ -26,8 +26,9 @@ export class LandmarkView {
                  : img ? buildImagePlate(entry, img.file)
                  : buildExhibit(entry));
     this.hasImage = !!img;
-    this.imageCredit = img ? (img.credit + (ir ? ' · IR: ' + ir.credit : '') +
+    const fallbackCredit = img ? (img.credit + (ir ? ' · IR: ' + ir.credit : '') +
       (this.exhibit.modelCredit ? ' · ' + this.exhibit.modelCredit : '')) : null;
+    this.imageCredit = this.exhibit.imageCredit || fallbackCredit;
     this.scene.add(this.exhibit.group);
 
     // soft lighting for any lit (non-additive) exhibit geometry

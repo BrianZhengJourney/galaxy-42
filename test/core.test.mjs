@@ -277,12 +277,14 @@ test('curated field stories have complete, selectable milestones', () => {
   }
 });
 
-test('Carina routes every milestone to a distinct dedicated visual state', () => {
-  const moments = LANDMARK_EXPERIENCES['carina-nebula'].moments;
-  assert.equal(moments.length, 6);
-  const states = moments.map(moment => moment.visual.state);
-  assert.ok(states.every(Boolean));
-  assert.equal(new Set(states).size, moments.length);
+test('dedicated multi-state exhibits route every milestone to a unique state', () => {
+  for (const id of ['carina-nebula', 'crab-nebula']){
+    const moments = LANDMARK_EXPERIENCES[id].moments;
+    assert.equal(moments.length, 6, id);
+    const states = moments.map(moment => moment.visual.state);
+    assert.ok(states.every(Boolean), id + ': missing state');
+    assert.equal(new Set(states).size, moments.length, id + ': duplicate state');
+  }
 });
 
 test('every Sol planet has six complete, unique timeline moments', () => {

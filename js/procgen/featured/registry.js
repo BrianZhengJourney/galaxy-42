@@ -15,7 +15,7 @@ const FEATURED_BUILDERS = new Map([
     renderer: 'carina-multi-state', build: buildCarinaFeatured,
   }],
   ['crab-nebula', {
-    renderer: 'crab-photo-volume-adapter', build: buildCrabFeatured,
+    renderer: 'crab-observation-volume', build: buildCrabFeatured,
   }],
   ['m87-black-hole-image', {
     renderer: 'm87-observation-adapter', build: buildM87Featured,

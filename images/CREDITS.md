@@ -33,6 +33,21 @@ Primary sources & licenses:
   The Hubble panorama, Eta Carinae close-up, and Webb Cosmic Cliffs are separate
   fields. The exhibit presents them as labeled spatial transitions, never as an
   aligned wavelength crossfade.
+- **Crab Nebula dedicated exhibit**:
+  - `images/crab/hubble-1999.jpg` and `images/crab/hubble-2024.jpg` — NASA's
+    matched-color Hubble comparison products on the same astrometric pixel
+    grid. The earlier mosaic uses WFPC2 observations begun in 1999; the later
+    WFC3 mosaic was observed in 2024. Both products were released in 2026.
+    Credit: NASA, ESA, STScI, William Blair (JHU); image processing: Joseph
+    DePasquale (STScI). Sources: <https://science.nasa.gov/asset/hubble/crab-nebula-1999/>
+    and <https://science.nasa.gov/asset/hubble/crab-nebula-2024/>.
+  - `images/crab/webb-2023.jpg` — 4000×3483 edition of the 2023 NIRCam+MIRI
+    observation (`weic2326a`), **CC BY 4.0**. Credit: NASA, ESA, CSA, STScI,
+    T. Temim (Princeton University). Source:
+    <https://esawebb.org/images/weic2326a/>.
+  Webb is presented as a separate infrared wavelength view, never as an epoch
+  between the two Hubble frames. The Hubble curtain is labeled as a registered
+  visualization because the two mosaics use different cameras and footprints.
 - **NASA / CXC / SAO — Chandra X-ray Observatory** (public domain):
   Tycho's Supernova, Cygnus X-1.
 - **NASA / JPL-Caltech** (public domain): Pale Blue Dot (PIA23645), Voyager.
@@ -48,8 +63,8 @@ Primary sources & licenses:
 - **NASA/SDO** (CC BY 2.0): 2012 Transit of Venus.
 - **ESO / M. Kornmesser** (CC BY 4.0): 51 Pegasi b artist's impression.
 
-Full attribution and license terms are on each image's Wikimedia Commons file
-page. CC BY / CC BY-SA images require the visible credit shown on the card.
+Full attribution and license terms are on each linked source page or original
+file page. CC BY / CC BY-SA images require the visible credit shown on the card.
 
 ## 3D landmark models
 
@@ -63,3 +78,8 @@ page. CC BY / CC BY-SA images require the visible credit shown on the card.
   Goddard Space Flight Center. `models/carina/eta-carinae-homunculus.stl` is
   shown explicitly as a scientific model, not a captured 3D image. Source:
   <https://science.nasa.gov/3d-resources/eta-carinae-homunculus-nebula/>
+- **Crab Nebula 3D visualization** — `models/crab/crab-nebula.glb`, an
+  X-ray-informed scientific representation by NASA/Francis J. Summers and
+  NASA/Robert L. Hurt. The exhibit centers and scales the model for explanation;
+  it is not tomography and is not coordinate-aligned to the image mosaics.
+  Source: <https://science.nasa.gov/3d-resources/crab-nebula/>.
