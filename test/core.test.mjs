@@ -277,6 +277,14 @@ test('curated field stories have complete, selectable milestones', () => {
   }
 });
 
+test('Carina routes every milestone to a distinct dedicated visual state', () => {
+  const moments = LANDMARK_EXPERIENCES['carina-nebula'].moments;
+  assert.equal(moments.length, 6);
+  const states = moments.map(moment => moment.visual.state);
+  assert.ok(states.every(Boolean));
+  assert.equal(new Set(states).size, moments.length);
+});
+
 test('every Sol planet has six complete, unique timeline moments', () => {
   const keys = [
     'SOL:MERCURY', 'SOL:VENUS', 'SOL:EARTH', 'SOL:MARS',

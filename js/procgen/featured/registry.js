@@ -12,7 +12,7 @@ const FEATURED_BUILDERS = new Map([
     renderer: 'pillars-hybrid', build: buildPillarsFeatured,
   }],
   ['carina-nebula', {
-    renderer: 'carina-photo-volume-adapter', build: buildCarinaFeatured,
+    renderer: 'carina-multi-state', build: buildCarinaFeatured,
   }],
   ['crab-nebula', {
     renderer: 'crab-photo-volume-adapter', build: buildCrabFeatured,

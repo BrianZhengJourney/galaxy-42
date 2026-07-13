@@ -1,9 +1,8 @@
 # Cosmic Landmark image credits
 
-Real photographs shown on the landmark exhibit plates. All are public domain or
-Creative Commons, sourced via Wikimedia Commons sized thumbnails and verified
-downloadable. Per-image credit strings live in `js/data/landmarkImages.js` and
-render on each landmark's card.
+Real photographs shown on the landmark exhibit plates. Sources use NASA media
+terms or Creative Commons licenses. Per-image credit strings live in
+`js/data/landmarkImages.js` and render on each landmark's card.
 
 Primary sources & licenses:
 
@@ -17,8 +16,23 @@ Primary sources & licenses:
   reconstruction and visible↔IR wavelength crossfade. Credit: NASA, ESA, CSA, STScI,
   J. DePasquale, A. Koekemoer, A. Pagan (STScI), ESA/Hubble and the Hubble
   Heritage Team.
-- **NASA / ESA / CSA — JWST** (public domain): Carina "Cosmic Cliffs",
-  Cassiopeia A (MIRI).
+- **NASA / ESA / CSA — JWST**: Cassiopeia A (MIRI).
+- **Carina dedicated exhibit**:
+  - `images/carina/cosmic-cliffs-webb-nircam-miri.jpg` — 4096-pixel browser
+    derivative of the official 11264×3904 combined NIRCam+MIRI Cosmic Cliffs
+    image (`weic2205b`), **CC BY 4.0**. Credit: NASA, ESA, CSA, STScI. Source:
+    <https://esawebb.org/images/weic2205b/>
+  - `images/carina/carina-hubble-2007.jpg` — practical 4000×1937 edition of
+    the Hubble Carina mosaic (`heic0707a`), **CC BY 4.0**. Credit: NASA, ESA,
+    N. Smith (University of California, Berkeley), and the Hubble Heritage Team
+    (STScI/AURA). Source: <https://esahubble.org/images/heic0707a/>
+  - `images/carina/eta-carinae-uv-2019.png` — Hubble WFC3/UVIS composite from
+    March and July 2018 data. Credit: NASA, ESA, N. Smith (University of
+    Arizona), and J. Morse (BoldlyGo Institute). Source:
+    <https://science.nasa.gov/asset/hubble/eta-carinae-observations-in-uv-light-uncover-magnesium-embedded-in-warm-gas/>
+  The Hubble panorama, Eta Carinae close-up, and Webb Cosmic Cliffs are separate
+  fields. The exhibit presents them as labeled spatial transitions, never as an
+  aligned wavelength crossfade.
 - **NASA / CXC / SAO — Chandra X-ray Observatory** (public domain):
   Tycho's Supernova, Cygnus X-1.
 - **NASA / JPL-Caltech** (public domain): Pale Blue Dot (PIA23645), Voyager.
@@ -44,3 +58,8 @@ page. CC BY / CC BY-SA images require the visible credit shown on the card.
   visualization. The downloadable positioning-reference STL was decimated and
   converted to glTF for the interactive exhibit. Source:
   <https://science.nasa.gov/asset/webb/pillars-of-creation-model-for-3d-printing/>
+- **Eta Carinae Homunculus Nebula** — observation-derived 3D printable model by
+  Steffen, W., Teodoro, M., Madura, T., et al. (2014), distributed by NASA's
+  Goddard Space Flight Center. `models/carina/eta-carinae-homunculus.stl` is
+  shown explicitly as a scientific model, not a captured 3D image. Source:
+  <https://science.nasa.gov/3d-resources/eta-carinae-homunculus-nebula/>
