@@ -18,10 +18,10 @@ const FEATURED_BUILDERS = new Map([
     renderer: 'crab-observation-volume', build: buildCrabFeatured,
   }],
   ['m87-black-hole-image', {
-    renderer: 'm87-observation-adapter', build: buildM87Featured,
+    renderer: 'm87-multi-state', build: buildM87Featured,
   }],
   ['pale-blue-dot', {
-    renderer: 'pale-blue-dot-observation-adapter', build: buildPaleBlueDotFeatured,
+    renderer: 'pale-blue-dot-multi-state', build: buildPaleBlueDotFeatured,
   }],
 ]);
 

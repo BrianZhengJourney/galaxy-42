@@ -278,12 +278,23 @@ test('curated field stories have complete, selectable milestones', () => {
 });
 
 test('dedicated multi-state exhibits route every milestone to a unique state', () => {
-  for (const id of ['carina-nebula', 'crab-nebula']){
+  const expectedStates = {
+    'm87-black-hole-image': [
+      'm87-jet-observed', 'm87-core-multiscale', 'eht-array-2017',
+      'eht-total-intensity-2017', 'eht-polarization-2017', 'eht-compare-2017-2018',
+    ],
+    'pale-blue-dot': [
+      'voyager-spacecraft', 'earth-moon-1977', 'pbd-original-1990',
+      'voyager-camera-shutdown', 'voyager-heliopause-2012', 'pbd-compare-1990-2020',
+    ],
+  };
+  for (const id of ['carina-nebula', 'crab-nebula', 'm87-black-hole-image', 'pale-blue-dot']){
     const moments = LANDMARK_EXPERIENCES[id].moments;
     assert.equal(moments.length, 6, id);
     const states = moments.map(moment => moment.visual.state);
     assert.ok(states.every(Boolean), id + ': missing state');
     assert.equal(new Set(states).size, moments.length, id + ': duplicate state');
+    if (expectedStates[id]) assert.deepEqual(states, expectedStates[id], id + ': unexpected state order');
   }
 });
 

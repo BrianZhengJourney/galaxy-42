@@ -48,10 +48,64 @@ Primary sources & licenses:
   Webb is presented as a separate infrared wavelength view, never as an epoch
   between the two Hubble frames. The Hubble curtain is labeled as a registered
   visualization because the two mosaics use different cameras and footprints.
+- **M87* dedicated exhibit**:
+  - `images/m87/hubble-jet-2024.jpg` — ESA/Hubble image `heic2411b`, used as
+    modern context for the jet first described in 1918, **CC BY 4.0**. Credit:
+    NASA, ESA, A. Lessing (Stanford University), E. Baltz (Stanford
+    University), M. Shara (AMNH), J. DePasquale (STScI). Source:
+    <https://esahubble.org/images/heic2411b/>; license terms:
+    <https://esahubble.org/copyright/>.
+  - `images/m87/multiscale-2021.jpg` — ESO collage `eso2105c`, combining
+    Hubble visible light with ALMA, VLBA, and EHT radio observations at
+    successively smaller scales, **CC BY 4.0**. Credit: EHT Collaboration;
+    ALMA (ESO/NAOJ/NRAO), Goddi et al.; NASA, ESA and the Hubble Heritage Team
+    (STScI/AURA); VLBA (NRAO), Kravchenko et al.; J. C. Algaba, I. Martí-Vidal.
+    Source: <https://www.eso.org/public/images/eso2105c/>; license terms:
+    <https://www.eso.org/public/outreach/copyright/>.
+  - `images/m87/eht-2017.jpg` — 2017 EHT total-intensity reconstruction
+    `eso1907a`, released in 2019, **CC BY 4.0**. Credit: EHT Collaboration.
+    Source: <https://www.eso.org/public/images/eso1907a/>; license terms:
+    <https://www.eso.org/public/outreach/copyright/>.
+  - `images/m87/eht-polarized-2021.jpg` — polarized reconstruction from the
+    same 2017 EHT campaign, released in 2021 as `eso2105a`, **CC BY 4.0**.
+    Credit: EHT Collaboration. The overlaid segments encode polarization
+    orientation related to magnetic structure; they are not literal field
+    lines. Source: <https://www.eso.org/public/images/eso2105a/>; license terms:
+    <https://www.eso.org/public/outreach/copyright/>.
+  - `images/m87/eht-2018.fits` — official EHT 2018 M87 scientific FITS data
+    product, credited to the Event Horizon Telescope Collaboration. Data
+    product: “2018 M87 EHT Results: Calibrated Data” (`2024-D01-01`), source:
+    <https://eventhorizontelescope.org/for-astronomers/data>; archival record
+    and citation terms: <https://doi.org/10.25739/epm5-r371>.
+  The orange/yellow EHT views are radio-intensity color maps, not visible-light
+  colors. The 2017/2018 comparison is rendered from separate data products,
+  not as a photographic animation.
+- **Pale Blue Dot dedicated exhibit**:
+  - `images/pale-blue-dot/earth-moon-1977.jpg` — Voyager 1’s Sept. 18, 1977
+    Earth–Moon composite, Photojournal `PIA00013`. Credit: NASA/JPL. The Moon
+    was brightened by a factor of three relative to Earth in the published
+    composite. Source: <https://photojournal.jpl.nasa.gov/catalog/PIA00013>.
+  - `images/pale-blue-dot/original-1990.jpg` — original published Pale Blue
+    Dot, Photojournal `PIA00452`. Credit: NASA/JPL-Caltech. Earth spans about
+    0.12 camera pixel; the light ray is internal camera scatter and enlarged
+    background features are artifacts, not stars. Source:
+    <https://photojournal.jpl.nasa.gov/catalog/PIA00452>.
+  - `images/pale-blue-dot/revisited-2020.jpg` — false-color modern reprocessing
+    of the same 1990 green, blue, and violet filtered frames, Photojournal
+    `PIA23645`. Credit: NASA/JPL-Caltech; processing: Kevin M. Gill, with input
+    from Candy Hansen and William Kosmann. It adds no new observation or
+    resolved spatial detail. Source:
+    <https://photojournal.jpl.nasa.gov/catalog/PIA23645>.
+  - `images/pale-blue-dot/heliopause-density-2012.jpg` — Voyager 1 plasma-density
+    evidence graphic, Photojournal `PIA17441`, released in 2013 to explain the
+    2012 crossing. Credit: NASA/JPL-Caltech. Its curve includes a theoretical
+    model; it is not a literal spherical boundary image. Source:
+    <https://www.jpl.nasa.gov/images/pia17441-observed-change-in-density-shows-voyager-is-in-interstellar-space/>.
+  NASA/JPL image use is governed by NASA’s Images and Media Usage Guidelines:
+  <https://www.nasa.gov/nasa-brand-center/images-and-media/>.
 - **NASA / CXC / SAO — Chandra X-ray Observatory** (public domain):
   Tycho's Supernova, Cygnus X-1.
-- **NASA / JPL-Caltech** (public domain): Pale Blue Dot (PIA23645), Voyager.
-- **Event Horizon Telescope Collaboration / ESO** (CC BY 4.0): M87*, Sgr A*.
+- **Event Horizon Telescope Collaboration / ESO** (CC BY 4.0): Sgr A*.
 - **LIGO Scientific Collaboration & Virgo** (CC BY 3.0): GW150914 signal figure.
 - **ESO / VISTA** (CC BY 4.0): Lagoon, Large & Small Magellanic Clouds,
   Halley's Comet.
@@ -83,3 +137,8 @@ file page. CC BY / CC BY-SA images require the visible credit shown on the card.
   NASA/Robert L. Hurt. The exhibit centers and scales the model for explanation;
   it is not tomography and is not coordinate-aligned to the image mosaics.
   Source: <https://science.nasa.gov/3d-resources/crab-nebula/>.
+- **Voyager spacecraft visualization** — `models/pale-blue-dot/voyager.glb`,
+  credited to NASA Visualization Technology Applications and Development
+  (VTAD). It is an explanatory visualization of the twin Voyager spacecraft,
+  not engineering CAD. Source: <https://science.nasa.gov/resource/voyager-3d-model/>;
+  NASA media terms: <https://www.nasa.gov/nasa-brand-center/images-and-media/>.
