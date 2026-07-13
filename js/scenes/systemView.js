@@ -77,10 +77,20 @@ export class SystemView {
     return this.planets.find(p => p.name === name) || null;
   }
 
+  /* Geological time is an appearance lens only. The orbital clock continues
+     through update() unchanged, so events and mission mechanics stay valid. */
+  setEpoch(epoch){
+    if (!epoch) return;
+    if (this.star.setAppearance) this.star.setAppearance(epoch.star);
+    for (const p of this.planets) p.setAppearance(epoch.bodies[p.name]);
+    if (this.belt && this.belt.setAppearance) this.belt.setAppearance(epoch.belt);
+    this.epoch = epoch;
+  }
+
   update(dt, simDays, now, camera){
     this.star.update(simDays, now);
     for (const p of this.planets){
-      p.update(simDays, dt);
+      p.update(simDays, dt, now);
       if (camera) p.syncSun(camera);
     }
     // keep each focusable moon's world-position handle current
@@ -93,6 +103,7 @@ export class SystemView {
 
   dispose(){
     this.labels.clear();
+    for (const p of this.planets) if (p.disposeAppearance) p.disposeAppearance();
     this.scene.traverse(obj => {
       if (obj.geometry) obj.geometry.dispose();
       const mats = Array.isArray(obj.material) ? obj.material : (obj.material ? [obj.material] : []);

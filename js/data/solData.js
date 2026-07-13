@@ -32,6 +32,9 @@ export const SOL_BODIES = [
            'ORBITAL PERIOD':'686.98 d', 'ROTATION':'24.62 h', 'MOONS':'2' } },
   { name:'JUPITER', eph:'JUPITER', cls:'GAS GIANT', r:2.6, dist:34, period:4332.6, rotP:0.414, tilt:3.1,
     phase:1.5,  view:12, tex:{type:'gas', base:'#c9a878', dark:'#8f6a44', light:'#e8d6b4', bands:9, spot:true},
+    // Galileo: a dark, dust-fed halo/main/gossamer system — intentionally
+    // orders of magnitude fainter in the scene than Saturn's icy rings.
+    rings:{ inner:1.29, outer:3.05, opacity:0.075, color:'#806d5b' },
     moons:[{ r:0.16, dist:3.6, period:1.77 },{ r:0.14, dist:4.3, period:3.55 },
            { r:0.22, dist:5.2, period:7.15 },{ r:0.20, dist:6.3, period:16.69 }],
     info:{ 'RADIUS':'69,911 km', 'MASS':'1.898 ×10²⁷ kg', 'SURFACE TEMP':'-110 °C',

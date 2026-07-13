@@ -42,6 +42,12 @@ The five dedicated field exhibits have direct preview URLs:
 - `http://127.0.0.1:8741/#/landmark/m87-black-hole-image`
 - `http://127.0.0.1:8741/#/landmark/pale-blue-dot`
 
+Solar System appearance checkpoints:
+
+- `http://127.0.0.1:8741/#/sol?t=0&epoch=1000ma` — Rodinia model, 1 Ga
+- `http://127.0.0.1:8741/#/sol?t=0&epoch=5ma` — Pliocene model, 5 Ma
+- `http://127.0.0.1:8741/#/sol?t=0` — present observations
+
 Drag to inspect depth, click every timeline milestone, and resize the browser
 to check mobile layout. Press `Ctrl+C` in the server terminal when finished.
 ES modules cannot load correctly over `file://`, so opening `index.html`
@@ -55,6 +61,16 @@ Three nested scales, seamlessly connected:
   (Keplerian elements + centennial rates): the date readout shows where the
   planets truly are. Saturn's rings, moons, the asteroid belt, and a
   long-period comet whose tail always points away from the star.
+- **Model epoch** — a separate appearance control changes the Sun, Earth
+  palaeogeography, artificial night lights, atmospheres and ring confidence at
+  1 Ga, 5 Ma and today. It never feeds ancient dates into the present-valid
+  ephemeris: exact planetary phases are not reconstructable at 1 Ga. The
+  hand-authored Rodinia and Pliocene globes are schematic artist's
+  reconstructions inspired by the [Merdith et al. full-plate model](https://doi.org/10.1016/j.earscirev.2020.103477)
+  and [Scotese–Wright PaleoDEM archive](https://doi.org/10.5281/zenodo.5460860),
+  not rasters derived from either dataset. The asteroid belt remains present
+  in both mature epochs. Saturn's
+  ghosted 1 Ga rings explicitly encode an unresolved age, not known absence.
 - **Galaxy view** — zoom all the way out (or `ESC` / GALAXY MAP) and ascend
   to a procedural spiral galaxy: ~80,000 stars on four logarithmic arms with
   bulge, halo, dust lanes and nebulae, via a custom point shader.
@@ -88,7 +104,7 @@ And on top of the map:
 - **Guided tours** — narrated camera choreography: *The Grand Tour* (Sol)
   and *Galactic Landmarks* (Sgr A*, the pulsar, TRAPPIST-1).
 - **Deep links** — every view is a shareable URL: `#/trappist-1/e`,
-  `#/sol/mars/orbit?t=500`, `#/galaxy`.
+  `#/sol/mars/orbit?t=500`, `#/sol?epoch=1000ma`, `#/galaxy`.
 - **Night-sky mode** (`#/sol/earth/sky`) — stand on Earth and see the *real*
   sky for the simulation date: 6,000 HYG stars, the IAU constellation
   figures, and the Sun, Moon and planets placed geocentrically from the same
@@ -124,7 +140,8 @@ js/
   main.js             App: mode switching, picking, transitions, main loop
   core/
     astro.js          sidereal time, frames, geocentric Sun/Moon/planets
-    time.js           TimeSystem — simDays is the single source of truth
+    time.js           TimeSystem — simDays is the orbital source of truth
+    route.js          hash parser for orbital date + independent model epoch
     cameraRig.js      spherical rig + eased fly-to (no OrbitControls)
     input.js          pointer/keyboard → app callbacks, drag-vs-click
     events.js         conjunction/perihelion prediction (scan + bisection)
@@ -133,6 +150,7 @@ js/
     tour.js           narrated tour engine over the navigation API
   data/
     solData.js        the real solar system (compressed distances)
+    solEpochs.js      complete 1 Ga / 5 Ma / present appearance snapshots
     ephemeris.js      JPL Keplerian elements + rates → true positions
     starCatalog.js    named stars, binaries, pulsar, Sgr A*, color helpers
     exoplanets.js     confirmed planets (NASA archive values, inlined)
@@ -160,7 +178,8 @@ tools/build-starcatalog.mjs  regenerates data/gen from HYG + d3-celestial
   utils/
     rng.js            seeded mulberry32 + helpers (determinism everywhere)
     noise.js          seeded 3D value noise + fBm for terrain
-    textures.js       every texture, drawn on canvas at runtime
+    textures.js       procedural planet/ring textures drawn at runtime
+    earthEpochTextures.js  Rodinia + Pliocene equirectangular reconstructions
 ```
 
 Run the tests with `npm test` (plain `node --test`, no dependencies).

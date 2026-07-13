@@ -205,7 +205,9 @@ export function makeRingTexture(seedStr){
     // The ice giants have sparse, narrow ring systems rather than Saturn's
     // broad bright disk. Positions are normalized across each body's configured
     // inner/outer radii so the strongest observed bands land in the right order.
-    const narrow = seedStr === 'URANUS'
+    const narrow = seedStr === 'JUPITER'
+      ? [[.01, .08, 18], [.24, .34, 4], [.29, .13, 22], [.62, .08, 32], [.94, .05, 20]]
+      : seedStr === 'URANUS'
       ? [[.01, .22, 1], [.30, .28, 1], [.33, .24, 1], [.36, .24, 1],
          [.52, .42, 1], [.59, .36, 1], [.70, .30, 1], [.73, .36, 1],
          [.78, .34, 1], [.92, .24, 1], [.96, .70, 2]]

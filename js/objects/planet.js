@@ -7,7 +7,14 @@ import { makePlanetTexture, makeRingTexture } from '../utils/textures.js';
 import { displayPosition, heliocentric, julianDate } from '../data/ephemeris.js';
 import { loadTexture } from '../utils/assets.js';
 import { PLANET_TEXTURES, MOON_TEXTURE, MOON_BUMP } from '../data/textureManifest.js';
-import { applyRealTextures, buildAtmosphere, updatePlanetSun } from './planetMaterial.js';
+import {
+  applyRealTextures,
+  buildAtmosphere,
+  installPlanetAppearance,
+  setPlanetAppearance,
+  updatePlanetAppearance,
+  updatePlanetSun,
+} from './planetMaterial.js';
 
 const J2000_EPOCH_MS = Date.UTC(2026, 6, 2);   // must match TimeSystem.EPOCH
 
@@ -29,6 +36,13 @@ export class Planet {
       emissive: new THREE.Color(cfg.glow ? (cfg.emissiveColor || '#ff5a22') : cfg.tex.base),
       emissiveIntensity: this.baseEmissive
     });
+    this.fallbackMap = this.mat.map;
+    // Jupiter's observed albedo contains today's Great Red Spot. Deep-time
+    // states use a separately seeded, spot-free belt model instead of copying
+    // one modern storm backward by millions or billions of years.
+    this.modelMap = cfg.name === 'JUPITER'
+      ? makePlanetTexture({ ...cfg.tex, spot: false }, 'JUPITER:modeled-weather')
+      : null;
     // real bodies get denser geometry so normal-mapped relief reads at the limb
     const real = PLANET_TEXTURES[cfg.name];
     const seg = real ? 128 : 48, segH = real ? 64 : 32;
@@ -71,9 +85,10 @@ export class Planet {
         map: makeRingTexture(cfg.name), side: THREE.DoubleSide,
         color: ringCfg.color || 0xffffff,
         transparent: true, opacity: ringCfg.opacity ?? 0.9, depthWrite: false });
-      const ring = new THREE.Mesh(rg, rmat);
-      ring.rotation.x = -Math.PI / 2;
-      this.spin.add(ring);
+      this.ringMat = rmat;
+      this.ring = new THREE.Mesh(rg, rmat);
+      this.ring.rotation.x = -Math.PI / 2;
+      this.spin.add(this.ring);
       if (real && real.ring)
         loadTexture(real.ring, tex => { rmat.map = tex; rmat.needsUpdate = true; }, { srgb: true });
     }
@@ -133,6 +148,7 @@ export class Planet {
 
     this._hoverAmt = 0;
     this._hoverTarget = 0;
+    installPlanetAppearance(this);
   }
 
   /* pure orbital position — mission planning samples this at arbitrary times */
@@ -160,7 +176,7 @@ export class Planet {
     return out.set(Math.cos(ang) * b.dist, 0, Math.sin(ang) * b.dist);
   }
 
-  update(simDays, dt = 0){
+  update(simDays, dt = 0, now = 0){
     const b = this.cfg;
     this.positionAt(simDays, this.group.position);
     this.mesh.rotation.y = 2 * Math.PI * simDays / b.rotP;   // sign ⇒ retrograde
@@ -178,6 +194,7 @@ export class Planet {
       const s = 1 + this._hoverAmt * 0.05;
       this.spin.scale.setScalar(s);
     }
+    updatePlanetAppearance(this, dt, now);
   }
 
   /* heliocentric longitude in radians — the event engine's view of this body */
@@ -189,6 +206,13 @@ export class Planet {
   }
 
   setHover(on){ this._hoverTarget = on ? 1 : 0; }
+
+  setAppearance(spec){ setPlanetAppearance(this, spec); }
+
+  disposeAppearance(){
+    if (this.modelMap && this.modelMap !== this.mat.map) this.modelMap.dispose();
+    this.modelMap = null;
+  }
 
   /* keep the day/night + atmosphere shaders pointed at the sun (view space) */
   syncSun(camera){

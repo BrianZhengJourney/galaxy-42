@@ -28,6 +28,8 @@ import { AudioEngine } from './ui/audio.js';
 import { LandmarkView } from './scenes/landmarkView.js';
 import { LANDMARKS, LANDMARK_CATEGORIES } from './data/landmarks.js';
 import { FEATURED_LANDMARK_IDS, landmarkExperience, bodyExperience } from './data/fieldStories.js';
+import { DEFAULT_SOL_EPOCH, SOL_EPOCHS, resolveSolEpoch } from './data/solEpochs.js';
+import { parseAtlasHash } from './core/route.js';
 
 const ORIGIN = new THREE.Vector3();
 
@@ -63,6 +65,7 @@ class App {
     this.focus = null;          // system mode: null | CentralStar | Planet
     this.galaxyFocus = null;    // galaxy mode: catalog entry awaiting jump
     this.hovered = null;
+    this.solEpochId = DEFAULT_SOL_EPOCH;
 
     this.mission = null;
     this.transferOrigin = null;
@@ -140,6 +143,8 @@ class App {
       if (this.mode === 'surface') h += '/orbit';
       if (this.mode === 'sky') h += '/sky';
       h += '?t=' + this.time.simDays.toFixed(1);
+      if (this.systemRec && this.systemRec.sol && this.solEpochId !== DEFAULT_SOL_EPOCH)
+        h += '&epoch=' + encodeURIComponent(this.solEpochId);
     }
     this._settingHash = true;
     history.replaceState(null, '', h);
@@ -147,30 +152,31 @@ class App {
   }
 
   _applyRoute(hash = location.hash){
-    const landmarkRoute = hash.match(/^#\/landmark\/([^/?]+)/);
-    if (landmarkRoute){
-      const landmark = LANDMARKS.find(e => e.id === landmarkRoute[1]);
+    if (!hash || hash === '#') return;              // bare URL opens at Sol
+    const route = parseAtlasHash(hash);
+    if (route.type === 'landmark'){
+      const landmark = LANDMARKS.find(e => e.id === route.landmarkId);
       if (landmark) this.enterLandmark(landmark);
       return;
     }
-    const m = hash.match(/^#\/([^/?]+)(?:\/([^/?]+))?(?:\/(orbit|sky))?(?:\?t=(-?[\d.]+))?/);
-    if (!m) return;
-    const [, starSlug, bodySlug, orbit, t] = m;
-    if (t !== undefined) this.time.simDays = parseFloat(t) || 0;
-    if (starSlug === 'galaxy'){ this.exitToGalaxy(); return; }
-    const rec = STAR_CATALOG.find(r => this._slug(r.name) === starSlug);
+    if (route.type === 'galaxy'){ this.exitToGalaxy(); return; }
+    if (route.simDays !== undefined) this.time.simDays = route.simDays;
+    const rec = STAR_CATALOG.find(r => this._slug(r.name) === route.starSlug);
     if (!rec) return;
     if (!this.systemRec || this.systemRec.name !== rec.name || this.mode !== 'system')
       this.enterSystem(rec, true);
-    if (bodySlug && this.systemView){
-      const body = this.systemView.planets.find(p => this._bodySlug(p) === bodySlug)
-        || this.systemView.satellites.map(s => s.body).find(b => this._bodySlug(b) === bodySlug);
+    if (!route.bodySlug && this.focus) this.systemOverview();
+    if (rec.sol) this.setSolEpoch(route.epoch || DEFAULT_SOL_EPOCH, { updateHash: false });
+    if (route.bodySlug && this.systemView){
+      const body = this.systemView.planets.find(p => this._bodySlug(p) === route.bodySlug)
+        || this.systemView.satellites.map(s => s.body).find(b => this._bodySlug(b) === route.bodySlug);
       if (body){
         this.focusPlanet(body);
-        if (orbit === 'sky' && body.name === 'EARTH') this.enterSky();
-        else if (orbit === 'orbit' && canDescend(body)) this.enterSurface(body);
+        if (route.view === 'sky' && body.name === 'EARTH') this.enterSky();
+        else if (route.view === 'orbit' && canDescend(body)) this.enterSurface(body);
       }
     }
+    this._setHash();
   }
 
   /* ---- optional post-processing bloom; sprite glow is the fallback ---- */
@@ -246,6 +252,7 @@ class App {
       this.enterSystem(sol, true);
     else if (this.mode === 'surface') this.exitSurface();
     else this.systemOverview();
+    this.setSolEpoch(DEFAULT_SOL_EPOCH);
   }
   tourJump(starName){
     const entry = this.galaxyView.findStar(starName);
@@ -287,6 +294,7 @@ class App {
     this.time.setRate(0);
     this.hud.syncTimeButtons(this.time.rate);
     this.hud.hideStoryline();
+    this.hud.hideSolEpochs();
     this.landmarkIndex = LANDMARKS.indexOf(entry);
     this.hud.setLandmarksVisible(false);
     this.hud.flash();
@@ -404,6 +412,7 @@ class App {
     return { label: '▸ WITNESS IN SOL SYSTEM', cb: () => {
       const sol = STAR_CATALOG[0];
       this.enterSystem(sol, true);
+      this.setSolEpoch(DEFAULT_SOL_EPOCH, { updateHash: false });
       this.time.simDays = simDays;
       this.time.setRate(0);
       this.hud.syncTimeButtons(this.time.rate);
@@ -449,10 +458,38 @@ class App {
     this.hud.setMinimapVisible(true);
     this.hud.setCatalogVisible(false);
     this.hud.hidePanel();
+    if (rec.sol){
+      this.hud.showSolEpochs(SOL_EPOCHS, id => this.setSolEpoch(id));
+      this.setSolEpoch(this.solEpochId, { updateHash: false });
+    } else {
+      this.hud.hideSolEpochs();
+    }
     this._crumbs();
     this._events = [];
     this.hud.setEventsVisible(true);
     setTimeout(() => this._computeEvents(), 60);   // off the build frame
+  }
+
+  setSolEpoch(id, { updateHash = true, syncStory = true } = {}){
+    const epoch = resolveSolEpoch(id);
+    this.solEpochId = epoch.id;
+    if (this.systemRec && this.systemRec.sol && this.systemView)
+      this.systemView.setEpoch(epoch);
+    if (this.surfaceView) this.surfaceView.setEpoch(epoch);
+    this.hud.setSolEpoch(epoch);
+    if (syncStory && this.mode === 'system' && this.systemRec && this.systemRec.sol &&
+        this.focus && this.focus.name === 'EARTH'){
+      const storyMoment = epoch.id === '1000ma' ? 'earth-rodinia'
+        : epoch.id === '5ma' ? 'earth-pliocene' : 'earth-today';
+      this.hud.selectStoryMoment(storyMoment, false);
+    }
+    if (this.mode === 'system' && this.systemRec && this.systemRec.sol &&
+        this.focus && !this.focus.isStar && this.focus.name !== 'EARTH'){
+      if (epoch.id !== DEFAULT_SOL_EPOCH) this._hideBodyStory();
+      else if (this._bodyStoryRate === undefined) this._showBodyStory(this.focus);
+    }
+    if (updateHash && this.systemRec && this.systemRec.sol) this._setHash();
+    return epoch;
   }
 
   /* ---- event horizon: predicted conjunctions + comet perihelion ---- */
@@ -507,6 +544,7 @@ class App {
     this.hud.setSector('GALACTIC FRAME');
     this.hud.setMinimapVisible(false);
     this.hud.setCatalogVisible(true);
+    this.hud.hideSolEpochs();
     this.hud.setEventsVisible(false);
     this.hud.hidePanel();
     this._crumbs();
@@ -541,8 +579,15 @@ class App {
     this.rig.minDist = p.r * 2.2;
     this.rig.flyTo({ getTarget: () => p.group.position, dist: p.cfg.view, dur: 1.25 });
     const actions = [];
-    if (p.name === 'EARTH' && this.systemRec.name === 'SOL')
-      actions.push({ label: '▸ NIGHT SKY · SURFACE VIEW', cb: () => this.enterSky() });
+    if (p.name === 'EARTH' && this.systemRec.name === 'SOL'){
+      actions.push({
+        label: '▸ PRESENT EARTH · NIGHT SKY',
+        cb: () => {
+          this.setSolEpoch(DEFAULT_SOL_EPOCH);
+          this.enterSky();
+        }
+      });
+    }
     if (canDescend(p))
       actions.push({ label: '▸ ENTER LOW ORBIT', cb: () => this.enterSurface(p) });
     if (!p.isMoon && !this.mission && this.systemView.planets.length > 1)
@@ -554,8 +599,27 @@ class App {
   }
 
   _showBodyStory(body){
-    const experience = bodyExperience(this.systemRec && this.systemRec.name, body && body.name);
+    let experience = bodyExperience(this.systemRec && this.systemRec.name, body && body.name);
     if (!experience) return;
+    if (body.name === 'EARTH' && this.systemRec && this.systemRec.sol){
+      const defaultMoment = this.solEpochId === '1000ma' ? 'earth-rodinia'
+        : this.solEpochId === '5ma' ? 'earth-pliocene' : experience.defaultMoment;
+      experience = { ...experience, defaultMoment };
+    } else if (this.systemRec && this.systemRec.sol){
+      // The legacy planet milestones are camera-led stories, not historical
+      // shape models. Keep them out of deep-time epochs; at NOW, label and
+      // pin their appearance explicitly so dated copy cannot inherit a ghost
+      // ring or other selected ancient state.
+      if (this.solEpochId !== DEFAULT_SOL_EPOCH) return;
+      experience = {
+        ...experience,
+        moments: experience.moments.map(moment => ({
+          ...moment,
+          kind: moment.kind + ' · PRESENT APPEARANCE',
+          visual: { ...moment.visual, epoch: DEFAULT_SOL_EPOCH },
+        })),
+      };
+    }
     if (this._bodyStoryRate === undefined){
       this._bodyStoryRate = this.time.rate;
       this.time.setRate(0);
@@ -567,6 +631,8 @@ class App {
   _applyBodyMoment(body, moment){
     if (!body || !moment || this.mode !== 'system') return;
     const visual = moment.visual || {};
+    if (visual.epoch && this.systemRec && this.systemRec.sol)
+      this.setSolEpoch(visual.epoch, { syncStory: false });
     this.rig.flyTo({
       getTarget: () => body.group.position,
       dist: body.cfg.view * (visual.distance == null ? 1 : visual.distance),
@@ -647,6 +713,8 @@ class App {
     this.audio.jump();
     this.labels.clear();
     this.surfaceView = new SurfaceView(p, this.systemView.def.star);
+    if (this.systemRec && this.systemRec.sol)
+      this.surfaceView.setEpoch(resolveSolEpoch(this.solEpochId));
     this.mode = 'surface';
     this.hud.setMode('surface');
     this.rig.minDist = this.surfaceView.minDist();
@@ -662,6 +730,9 @@ class App {
   enterSky(){
     if (this.mode !== 'system' || !this.systemRec || this.systemRec.name !== 'SOL') return;
     this._hideBodyStory();
+    if (this.solEpochId !== DEFAULT_SOL_EPOCH)
+      this.setSolEpoch(DEFAULT_SOL_EPOCH, { updateHash: false });
+    this.hud.hideSolEpochs();
     this.focus = this.systemView.findBody('EARTH');   // you are standing on it
     this.hud.flash();
     this.audio.jump();
@@ -720,6 +791,8 @@ class App {
     this.focusPlanet(earth);
     this.hud.setMinimapVisible(true);
     this.hud.setEventsVisible(true);
+    this.hud.showSolEpochs(SOL_EPOCHS, id => this.setSolEpoch(id));
+    this.hud.setSolEpoch(resolveSolEpoch(this.solEpochId));
   }
 
   exitSurface(){
@@ -739,6 +812,10 @@ class App {
     this.rig.flyTo({ dist: p.cfg.view, dur: 1.2 });
     this.hud.setMinimapVisible(true);
     this.hud.setEventsVisible(true);
+    if (this.systemRec && this.systemRec.sol){
+      this.hud.showSolEpochs(SOL_EPOCHS, id => this.setSolEpoch(id));
+      this.hud.setSolEpoch(resolveSolEpoch(this.solEpochId));
+    }
     this._showBodyStory(p);
     this._crumbs();
   }

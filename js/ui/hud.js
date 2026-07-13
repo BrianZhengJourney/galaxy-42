@@ -332,6 +332,64 @@ export class Hud {
     setInteractive($('console'), true);
     this._storyExperience = null; this._storySelect = null;
   }
+
+  /* ---- Solar System appearance epochs (not the orbital clock) ---- */
+  showSolEpochs(epochs, onSelect){
+    this._solEpochs = epochs;
+    this._solEpochSelect = onSelect;
+    const tabs = $('solEpochTabs');
+    tabs.innerHTML = '';
+    epochs.forEach((epoch, index) => {
+      const btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'epoch-tab'; btn.dataset.epoch = epoch.id;
+      btn.id = 'epoch-tab-' + epoch.id; btn.textContent = epoch.label || epoch.date;
+      btn.setAttribute('role', 'tab'); btn.setAttribute('aria-selected', 'false');
+      btn.setAttribute('aria-controls', 'solEpochCopy'); btn.tabIndex = -1;
+      btn.addEventListener('click', () => onSelect(epoch.id));
+      btn.addEventListener('keydown', event => {
+        let next = index;
+        if (event.key === 'ArrowRight') next = (index + 1) % epochs.length;
+        else if (event.key === 'ArrowLeft') next = (index - 1 + epochs.length) % epochs.length;
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = epochs.length - 1;
+        else return;
+        event.preventDefault();
+        onSelect(epochs[next].id);
+        tabs.children[next].focus();
+      });
+      tabs.appendChild(btn);
+    });
+    const panel = $('solEpoch');
+    panel.classList.add('show');
+    document.body.classList.add('sol-epoch-visible');
+    setInteractive(panel, true);
+  }
+  hideSolEpochs(){
+    const panel = $('solEpoch');
+    panel.classList.remove('show');
+    document.body.classList.remove('sol-epoch-visible');
+    setInteractive(panel, false);
+  }
+  setSolEpoch(epoch){
+    if (!epoch) return;
+    let active = null;
+    for (const tab of document.querySelectorAll('#solEpochTabs .epoch-tab')){
+      const on = tab.dataset.epoch === epoch.id;
+      tab.classList.toggle('active', on);
+      tab.setAttribute('aria-selected', String(on));
+      tab.tabIndex = on ? 0 : -1;
+      if (on) active = tab;
+    }
+    $('solEpochKind').textContent = epoch.phase || epoch.kind || '';
+    $('solEpochTitle').textContent = epoch.title;
+    $('solEpochText').textContent = epoch.text;
+    $('solEpochLegend').textContent = epoch.legend || '';
+    $('solEpochEvidence').textContent = [epoch.evidence, epoch.caveat].filter(Boolean).join(' ');
+    const source = $('solEpochSource');
+    source.href = epoch.source;
+    source.textContent = (epoch.sourceLabel || 'SOURCE') + ' ↗';
+    if (active) $('solEpochCopy').setAttribute('aria-labelledby', active.id);
+  }
   setMode(mode){ document.body.dataset.mode = mode; }
   setEventsVisible(on){ $('events').classList.toggle('show', on); }
   setMissionVisible(on){ $('mission').classList.toggle('show', on); }

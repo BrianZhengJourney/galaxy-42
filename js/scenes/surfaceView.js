@@ -10,10 +10,16 @@ import * as THREE from 'three';
 import { makeNoise3D } from '../utils/noise.js';
 import { hashStr, mulberry } from '../utils/rng.js';
 import { buildStarSphere } from '../objects/starfield.js';
-import { canvasTex } from '../utils/textures.js';
+import { canvasTex, makePlanetTexture } from '../utils/textures.js';
 import { loadTexture } from '../utils/assets.js';
 import { PLANET_TEXTURES, MOON_SURFACE } from '../data/textureManifest.js';
-import { applyRealTextures, buildAtmosphere } from '../objects/planetMaterial.js';
+import {
+  applyRealTextures,
+  buildAtmosphere,
+  installPlanetAppearance,
+  setPlanetAppearance,
+  updatePlanetAppearance,
+} from '../objects/planetMaterial.js';
 
 const R = 20;
 
@@ -78,15 +84,24 @@ export class SurfaceView {
 
   /* ---------- real body: the same globe as orbit, up close ---------- */
   _buildReal(planet, real){
-    const mat = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0 });
+    // A synchronous fallback map guarantees vMapUv exists when the epoch shader
+    // first compiles; the cached observed map replaces it as soon as it arrives.
+    const mat = new THREE.MeshStandardMaterial({
+      map: makePlanetTexture(planet.cfg.tex, planet.name + ':low-orbit'),
+      roughness: 0.92, metalness: 0,
+    });
     mat.userData.keepMaps = true;                 // cached/shared — don't dispose
     const globe = new THREE.Mesh(new THREE.SphereGeometry(R, 256, 160), mat);
     this.spin.add(globe);
     this.terrain = globe;
     this.realMat = mat;
+    this.appearanceTarget = {
+      name: planet.name, cfg: planet.cfg, mat, baseEmissive: 0,
+      fallbackMap: mat.map,
+    };
 
     // load the identical maps the orbital planet used (already in cache → instant)
-    applyRealTextures({ mat, baseEmissive: 0 }, real);
+    applyRealTextures(this.appearanceTarget, real);
 
     if (real.clouds){
       const cmat = new THREE.MeshStandardMaterial({
@@ -95,6 +110,7 @@ export class SurfaceView {
       cmat.userData.keepMaps = true;
       this.clouds = new THREE.Mesh(new THREE.SphereGeometry(R * 1.015, 128, 80), cmat);
       this.spin.add(this.clouds);
+      this.appearanceTarget.clouds = this.clouds;
       loadTexture(real.clouds, tex => {
         cmat.map = tex; cmat.alphaMap = tex; cmat.needsUpdate = true;
       });
@@ -105,7 +121,9 @@ export class SurfaceView {
         (real.atmoStrength || 1) * 1.15);
       this.atmoMat = this.atmoMesh.userData.atmoMat;
       this.scene.add(this.atmoMesh);
+      this.appearanceTarget.atmosphere = this.atmoMesh;
     }
+    installPlanetAppearance(this.appearanceTarget);
   }
 
   /* ---------- procedural world: displaced fBm terrain ---------- */
@@ -186,9 +204,20 @@ export class SurfaceView {
       if (this.realMat && this.realMat.userData.shader)
         this.realMat.userData.shader.uniforms.uSunViewDir.value.copy(this._sunViewDir);
     }
+    if (this.appearanceTarget) updatePlanetAppearance(this.appearanceTarget, dt, simDays * 0.01);
+  }
+
+  setEpoch(epoch){
+    if (!this.appearanceTarget || !epoch || !epoch.bodies) return;
+    setPlanetAppearance(this.appearanceTarget, epoch.bodies[this.planet.name]);
+    this.epoch = epoch;
   }
 
   dispose(){
+    if (this.appearanceTarget && this.appearanceTarget.fallbackMap){
+      this.appearanceTarget.fallbackMap.dispose();
+      this.appearanceTarget.fallbackMap = null;
+    }
     this.scene.traverse(obj => {
       if (obj.geometry) obj.geometry.dispose();
       const mats = Array.isArray(obj.material) ? obj.material : (obj.material ? [obj.material] : []);

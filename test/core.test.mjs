@@ -12,6 +12,13 @@ import { ResourceScope } from '../js/procgen/featured/resourceScope.js';
 import { mulberry, hashStr, weighted } from '../js/utils/rng.js';
 import { STAR_CATALOG } from '../js/data/starCatalog.js';
 import { SOL_BODIES } from '../js/data/solData.js';
+import {
+  DEFAULT_SOL_EPOCH,
+  SOL_BODY_NAMES,
+  SOL_EPOCHS,
+  resolveSolEpoch,
+} from '../js/data/solEpochs.js';
+import { parseAtlasHash } from '../js/core/route.js';
 
 const rec = name => STAR_CATALOG.find(r => r.name === name);
 
@@ -248,6 +255,69 @@ test('outer planet data exposes current moon and ring facts', () => {
     assert.ok(rings.inner > 1 && rings.outer > rings.inner, name + ': invalid ring radii');
     assert.ok(rings.opacity > 0 && rings.opacity <= 1, name + ': invalid ring opacity');
   }
+  const jupiterRings = bodies.get('JUPITER').rings;
+  assert.ok(jupiterRings && jupiterRings.opacity > 0 && jupiterRings.opacity < 0.15);
+});
+
+/* ---------------- Solar System model epochs ---------------- */
+
+test('Sol epochs are complete appearance snapshots, never orbital ephemerides', () => {
+  assert.deepEqual(SOL_EPOCHS.map(epoch => epoch.id), ['1000ma', '5ma', 'present']);
+  assert.equal(DEFAULT_SOL_EPOCH, 'present');
+  const appearanceKeys = [
+    'surface', 'nightStrength', 'cloudOpacity', 'atmosphereStrength',
+    'atmosphereColor', 'ringVisible', 'ringOpacity', 'ringUncertain',
+  ];
+  const forbidden = new Set(['eph', 'dist', 'period', 'phase', 'simDays', 'position']);
+  for (const epoch of SOL_EPOCHS){
+    assert.ok(epoch.label && epoch.title && epoch.text && epoch.legend);
+    assert.ok(epoch.evidence && epoch.caveat && epoch.sourceLabel);
+    assert.match(epoch.source, /^https:\/\//);
+    assert.ok(epoch.star.luminosityScale > 0 && epoch.star.luminosityScale <= 1);
+    assert.equal(epoch.belt.visible, true);
+    assert.deepEqual(Object.keys(epoch.bodies), SOL_BODY_NAMES);
+    for (const body of Object.values(epoch.bodies)){
+      for (const key of appearanceKeys) assert.ok(key in body, epoch.id + ': missing ' + key);
+      for (const key of Object.keys(body)) assert.equal(forbidden.has(key), false, epoch.id + ': ' + key);
+    }
+  }
+});
+
+test('ancient Earth loses artificial lights while mature belts persist', () => {
+  assert.equal(resolveSolEpoch('1000ma').bodies.EARTH.surface, 'rodinia');
+  assert.equal(resolveSolEpoch('1000ma').bodies.EARTH.nightStrength, 0);
+  assert.equal(resolveSolEpoch('5ma').bodies.EARTH.surface, 'pliocene');
+  assert.equal(resolveSolEpoch('5ma').bodies.EARTH.nightStrength, 0);
+  assert.equal(resolveSolEpoch('present').bodies.EARTH.nightStrength, 1);
+  assert.equal(resolveSolEpoch('1000ma').belt.visible, true);
+  assert.equal(resolveSolEpoch('5ma').belt.visible, true);
+  assert.equal(resolveSolEpoch('1000ma').bodies.SATURN.ringUncertain, true);
+  assert.equal(resolveSolEpoch('1000ma').bodies.JUPITER.surface, 'modeled-weather');
+  assert.equal(resolveSolEpoch('5ma').bodies.JUPITER.surface, 'modeled-weather');
+  assert.equal(resolveSolEpoch('present').bodies.JUPITER.ringVisible, true);
+});
+
+test('Sol epoch resolution is frozen and falls back to present', () => {
+  assert.equal(resolveSolEpoch('nonsense').id, 'present');
+  assert.equal(resolveSolEpoch().id, 'present');
+  assert.ok(Object.isFrozen(SOL_EPOCHS));
+  assert.ok(Object.isFrozen(resolveSolEpoch('1000ma').bodies.EARTH));
+});
+
+test('hash routes preserve old orbital links and parse independent model epochs', () => {
+  assert.deepEqual(
+    { ...parseAtlasHash('#/sol?t=170.2'), params: undefined },
+    {
+      type: 'system', starSlug: 'sol', bodySlug: null, view: null,
+      simDays: 170.2, epoch: null, params: undefined,
+    },
+  );
+  const ancient = parseAtlasHash('#/sol/earth/orbit?t=-12.5&epoch=1000ma');
+  assert.equal(ancient.starSlug, 'sol');
+  assert.equal(ancient.bodySlug, 'earth');
+  assert.equal(ancient.view, 'orbit');
+  assert.equal(ancient.simDays, -12.5);
+  assert.equal(ancient.epoch, '1000ma');
 });
 
 /* ---------------- visual field stories ---------------- */

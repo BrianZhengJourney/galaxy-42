@@ -123,6 +123,21 @@
   <div id="evList"></div>
 </div>
 
+<!-- geological appearance is separate from the live orbital date below -->
+<section id="solEpoch" aria-label="Solar System model epoch" inert aria-hidden="true">
+  <div id="solEpochHead">
+    <span>MODEL EPOCH</span><span id="solEpochKind"></span>
+  </div>
+  <div id="solEpochTabs" role="tablist" aria-label="Choose a visual reconstruction"></div>
+  <div id="solEpochCopy" role="tabpanel" aria-live="polite">
+    <div id="solEpochTitle"></div>
+    <div id="solEpochText"></div>
+    <div id="solEpochLegend"></div>
+    <div id="solEpochEvidence"></div>
+    <a id="solEpochSource" target="_blank" rel="noopener">SOURCE &#8599;</a>
+  </div>
+</section>
+
 <!-- semantic story time: discrete observations, evidence and model forecasts -->
 <section id="storyline" aria-label="Story timeline" inert aria-hidden="true">
   <div id="storyCopy" role="tabpanel" aria-live="polite">
@@ -137,7 +152,7 @@
 <!-- time console -->
 <div id="console" aria-hidden="false">
   <div id="readouts">
-    <div class="r"><span>DATE</span><b id="roDate">&mdash;</b></div>
+    <div class="r"><span>ORBIT DATE</span><b id="roDate">&mdash;</b></div>
     <div class="r" id="rRate"><span>RATE</span><b id="roRate">&mdash;</b></div>
     <div class="r"><span>ELAPSED</span><b id="roElapsed">T+ 0.0 d</b></div>
     <div class="r"><span>SECTOR</span><b id="roSector">SOL</b></div>

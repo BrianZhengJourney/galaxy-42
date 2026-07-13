@@ -52,6 +52,8 @@ export class CentralStar {
     this.light.decay = 0;   // r155+ defaults to physical 1/d² falloff — planets would go black
     this.light.color.lerp(new THREE.Color(0xffffff), 0.55);   // keep planets readable
     this.group.add(this.light);
+    this.baseLightIntensity = this.light.intensity;
+    this.luminosityScale = 1;
   }
 
   /* ---- Sagittarius A*: horizon, tilted accretion disk, photon ring ---- */
@@ -136,6 +138,13 @@ export class CentralStar {
       const s = sp.userData.base * (1 + 0.04 * Math.sin(now * (0.7 + i * 0.35) + i * 2));
       sp.scale.set(s, s, 1);
     });
+  }
+  setAppearance(spec){
+    if (!spec || this.cfg.blackhole) return;
+    this.luminosityScale = spec.luminosityScale == null ? 1 : spec.luminosityScale;
+    if (this.light) this.light.intensity = this.baseLightIntensity * this.luminosityScale;
+    for (const sprite of this.coronaSprites)
+      sprite.material.opacity = 0.72 + this.luminosityScale * 0.28;
   }
   setHover(){ /* stars brighten via hover tag only */ }
 }

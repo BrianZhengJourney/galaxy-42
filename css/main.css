@@ -370,6 +370,38 @@ canvas{ display:block; }
   color:rgba(207,238,247,.45); margin-top:2px; }
 .ev-item .d b{ font-weight:400; color:rgba(98,230,255,.7); }
 
+/* ---- Solar System geological appearance (independent of orbital date) ---- */
+#solEpoch{
+  position:fixed; left:32px; top:78px; z-index:11; width:315px;
+  padding:12px 14px 13px; opacity:0; transform:translateY(-7px); pointer-events:none;
+  background:linear-gradient(145deg, rgba(4,12,18,.88), rgba(4,12,18,.54));
+  border:1px solid rgba(98,230,255,.16); border-left:2px solid var(--amber);
+  backdrop-filter:blur(11px); box-shadow:0 0 30px rgba(0,10,20,.55);
+  transition:opacity .3s ease, transform .3s ease;
+}
+#solEpoch.show{ opacity:1; transform:translateY(0); pointer-events:auto; }
+#solEpochHead{ display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:9px; color:var(--amber); font:600 8px var(--mono); letter-spacing:.25em; }
+#solEpochKind{ color:rgba(207,238,247,.40); font-weight:400; letter-spacing:.13em; text-align:right; }
+#solEpochTabs{ display:grid; grid-template-columns:repeat(3, 1fr); gap:5px; }
+.epoch-tab{ appearance:none; min-height:31px; border:1px solid rgba(98,230,255,.18);
+  background:rgba(5,16,23,.55); color:rgba(207,238,247,.55); cursor:pointer;
+  font:9px var(--mono); letter-spacing:.13em; transition:all .18s; }
+.epoch-tab:hover, .epoch-tab:focus-visible{ color:var(--cyan); border-color:var(--cyan-dim);
+  outline:none; background:rgba(20,53,65,.48); }
+.epoch-tab.active{ color:#08151b; background:var(--amber); border-color:var(--amber);
+  box-shadow:0 0 14px rgba(255,180,94,.36); }
+#solEpochCopy{ position:relative; margin-top:10px; padding-top:9px;
+  border-top:1px solid rgba(98,230,255,.10); }
+#solEpochTitle{ color:#edfaff; font:500 17px/1.08 var(--display); letter-spacing:.02em; }
+#solEpochText{ margin-top:5px; color:rgba(207,238,247,.62); font:10px/1.42 var(--sans); }
+#solEpochLegend{ display:none; }
+#solEpochEvidence{ margin-top:6px; color:rgba(255,180,94,.62); font:8px/1.45 var(--mono);
+  letter-spacing:.05em; }
+#solEpochSource{ display:inline-block; margin-top:7px; color:rgba(98,230,255,.52);
+  text-decoration:none; font:8px var(--mono); letter-spacing:.17em; }
+#solEpochSource:hover, #solEpochSource:focus-visible{ color:var(--cyan); outline:none; }
+
 /* ---- semantic story timeline: equally spaced meaning, not linear time ---- */
 #storyline{
   position:fixed; left:50%; bottom:20px; z-index:12;
@@ -475,6 +507,17 @@ body.story-mode #console{ opacity:0; pointer-events:none; transform:translateX(-
   #lmCard.expanded{ width:calc(100vw - 32px); }
   #lmCardName{ font-size:26px; }
   #lmCardWow{ font-size:12px; }
+  #solEpoch{ left:12px; top:58px; width:calc(100vw - 24px); padding:9px 10px 10px; }
+  #solEpochHead{ margin-bottom:7px; }
+  #solEpochCopy{ display:grid; grid-template-columns:1fr auto;
+    grid-template-areas:"title source" "text text" "legend legend"; column-gap:10px; margin-top:7px; padding-top:7px; }
+  #solEpochTitle{ grid-area:title; font-size:15px; }
+  #solEpochText{ grid-area:text; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #solEpochLegend{ display:block; grid-area:legend; margin-top:5px; color:rgba(255,180,94,.82);
+    font:7.5px/1.35 var(--mono); letter-spacing:.10em; }
+  #solEpochEvidence{ display:none; }
+  #solEpochSource{ grid-area:source; margin:0; align-self:center; }
+  body.sol-epoch-visible #panel{ top:188px; }
   #storyline{ bottom:12px; width:calc(100vw - 24px); padding:9px 10px 11px; }
   #storyCopy{ grid-template-columns:1fr auto; grid-template-areas:"meta source" "title title" "text text";
     row-gap:2px; margin-bottom:8px; }

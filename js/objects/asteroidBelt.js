@@ -41,4 +41,10 @@ export class AsteroidBelt {
     }
     this.geo.attributes.position.needsUpdate = true;
   }
+
+  setAppearance(spec){
+    if (!spec) return;
+    this.points.visible = spec.visible !== false;
+    if (spec.opacity != null) this.points.material.opacity = spec.opacity;
+  }
 }
