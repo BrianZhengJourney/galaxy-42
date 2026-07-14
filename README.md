@@ -42,6 +42,9 @@ The five timeline-driven field exhibits have direct preview URLs:
 - `http://127.0.0.1:8741/#/landmark/m87-black-hole-image`
 - `http://127.0.0.1:8741/#/landmark/pale-blue-dot`
 
+The physical black-hole models are available at `#/sagittarius-a` and at the
+`cygnus-x-1`, `m87-star`, `sagittarius-a-star`, and `gw150914` landmark routes.
+
 Nine more nebulae use dedicated photo-sculpt 3D profiles: Orion, Horsehead,
 Ring, Helix, Lagoon, Cat's Eye, Veil, Rosette, and Trifid. Each starts as the
 source observation, then unfolds into a depth-aligned triangulated color relief
@@ -105,8 +108,11 @@ Thirty-two catalogued destinations, including:
   TRAPPIST-1's seven worlds, Proxima b/d, Kepler-186b–f, 51 Peg b,
   HD 209458 b, Gliese 581, Tau Ceti, Epsilon Eridani — real radii, masses,
   periods and equilibrium temperatures.
-- **Sagittarius A*** — supermassive black hole with accretion disk, photon
-  ring, and the real S-cluster stars (S2, S38, S55) on their eccentric orbits.
+- **Relativistic black holes** — Sagittarius A*, M87*, Cygnus X-1 and
+  GW150914 share a camera-aware shader core: a true-black horizon, turbulent
+  accretion flow, Doppler-brightened side and upper/lower lensed disk images.
+  Each keeps its real context—S-cluster orbits, M87's jet, Cygnus X-1's donor
+  star and mass-transfer stream, or a near-vacuum merger.
 - **PSR B1257+12** — a millisecond pulsar with sweeping beams and the first
   exoplanets ever discovered (Draugr, Poltergeist, Phobetor, 1992).
 - **Binary systems** — Alpha Centauri B and the white dwarf Sirius B orbit
@@ -184,7 +190,8 @@ tools/build-starcatalog.mjs  regenerates data/gen from HYG + d3-celestial
     system.js         confirmed | procedural | black-hole system generator
   objects/
     planet.js         orbiting body: ephemeris/Kepler/circular positioning
-    star.js           photosphere/corona; black-hole + pulsar variants
+    star.js           photosphere/corona; shared black-hole + pulsar variants
+    blackHoleVisual.js camera-aware accretion, Doppler and analytic lensing core
     comet.js          Kepler ellipse + anti-sunward particle tail
     asteroidBelt.js   thousands of individually-orbiting points
     starfield.js      background star sphere + drifting dust

@@ -4,6 +4,14 @@
 
 import { NEBULA_PROFILE_IDS } from './nebulaProfiles.js';
 
+const MODELED_BLACK_HOLE_IDS = new Set([
+  'cygnus-x-1',
+  'm87-star',
+  'sagittarius-a-star',
+  'gw150914',
+  'gw150914-first-gravitational-wave',
+]);
+
 export const FEATURED_LANDMARK_IDS = [
   'pillars-of-creation',
   'carina-nebula',
@@ -670,14 +678,17 @@ export function landmarkExperience(entry){
   if (curated) return alias1054
     ? { ...curated, defaultMoment: 'crab-1054' }
     : curated;
+  const modeledBlackHole = !!entry && MODELED_BLACK_HOLE_IDS.has(entry.id);
   return {
     summary: entry.subtitle || entry.famousFor || 'A field note from the cosmic archive.',
     defaultMoment: 'archive-observation',
-    note: 'This archive entry has one verified observation marker; deeper visual chapters are added only after source and asset review.',
+    note: modeledBlackHole
+      ? 'This is a scale-compressed, physically informed visualization. The shadow, lensing, disk, companion or merger context is explanatory—not a visible-light photograph or full general-relativistic ray trace.'
+      : 'This archive entry has one verified observation marker; deeper visual chapters are added only after source and asset review.',
     moments: [{
       id: 'archive-observation',
       date: entry.date || 'ARCHIVE',
-      kind: 'OBSERVATION',
+      kind: modeledBlackHole ? 'SCIENTIFIC VISUALIZATION' : 'OBSERVATION',
       title: entry.famousFor || entry.subtitle || entry.name,
       text: entry.wow || 'Open More for the full field note.',
       visual: {

@@ -221,7 +221,7 @@ export const LANDMARKS = [
   },
   {
     id: "gw170817", name: "GW170817",
-    designation: "GW170817 \u00b7 host NGC 4993", category: "BLACK_HOLE", vizStyle: "gwave",
+    designation: "GW170817 \u00b7 host NGC 4993", category: "MILESTONE", vizStyle: "gwave",
     subtitle: "First neutron-star merger",
     raDeg: 197.45, decDeg: -23.3811, distance: "130 Mly", date: "2017-08-17",
     famousFor: "First neutron-star merger seen in gravity and light",
@@ -230,7 +230,7 @@ export const LANDMARKS = [
   },
   {
     id: "psr-b1919-21", name: "PSR B1919+21",
-    designation: "PSR B1919+21 \u00b7 'LGM-1'", category: "BLACK_HOLE", vizStyle: "pulsar",
+    designation: "PSR B1919+21 \u00b7 'LGM-1'", category: "MILESTONE", vizStyle: "pulsar",
     subtitle: "The first pulsar",
     raDeg: 290.4292, decDeg: 21.8836, distance: "2,300 ly", date: "1967-11-28",
     famousFor: "The first pulsar ever discovered",

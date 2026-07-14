@@ -28,6 +28,12 @@ import {
 } from '../js/data/nebulaProfiles.js';
 import { LANDMARK_IMAGES } from '../js/data/landmarkImages.js';
 import { LANDMARK_DEPTH } from '../js/data/landmarkDepth.js';
+import {
+  keplerPositionAtEccentricAnomaly,
+  S_STAR_ORBITS,
+  solveKeplerEccentricAnomaly,
+  sStarPositionAtDays,
+} from '../js/data/sStars.js';
 
 const rec = name => STAR_CATALOG.find(r => r.name === name);
 
@@ -147,6 +153,42 @@ test('Sagittarius A* generates the S-cluster on eccentric orbits', () => {
   assert.equal(bh.star.blackhole, true);
   assert.deepEqual(bh.bodies.map(b => b.name), ['S2', 'S38', 'S55']);
   assert.ok(bh.bodies.every(b => b.kepler && b.kepler.e > 0.7));
+  assert.deepEqual(
+    bh.bodies.map(body => body.kepler),
+    S_STAR_ORBITS.map(star => ({
+      a: star.a,
+      e: star.e,
+      period: star.period,
+      incl: star.incl,
+      node: star.node,
+      phase: star.phase,
+    })),
+  );
+  bh.bodies.forEach((body, index) => assert.deepEqual(body.info, S_STAR_ORBITS[index].info));
+});
+
+test('shared S-star helper solves Kepler motion and closes every orbit', () => {
+  for (const star of S_STAR_ORBITS){
+    for (const days of [0, 117.25, star.period * 0.63]){
+      const M = (star.phase + Math.PI * 2 * days / star.period) % (Math.PI * 2);
+      const E = solveKeplerEccentricAnomaly(M, star.e);
+      assert.ok(Math.abs(E - star.e * Math.sin(E) - M) < 1e-12, star.id);
+
+      const solved = sStarPositionAtDays(star, days);
+      const direct = keplerPositionAtEccentricAnomaly(star, E);
+      assert.ok(Math.abs(solved.x - direct.x) < 1e-12, star.id + ' x');
+      assert.ok(Math.abs(solved.y - direct.y) < 1e-12, star.id + ' y');
+      assert.ok(Math.abs(solved.z - direct.z) < 1e-12, star.id + ' z');
+    }
+
+    const start = sStarPositionAtDays(star, 0);
+    const closed = sStarPositionAtDays(star, star.period);
+    assert.ok(Math.hypot(
+      start.x - closed.x,
+      start.y - closed.y,
+      start.z - closed.z,
+    ) < 1e-10, star.id + ' orbit closes');
+  }
 });
 
 /* ---------------- event engine ---------------- */
@@ -379,6 +421,133 @@ test('every featured landmark resolves to a curated catalog entry', () => {
   for (const id of FEATURED_LANDMARK_IDS){
     assert.ok(catalogIds.has(id), id + ': missing catalog entry');
     assert.ok(LANDMARK_EXPERIENCES[id], id + ': missing experience');
+  }
+});
+
+test('black-hole catalog identity and featured dispatch stay physically distinct', async () => {
+  assert.deepEqual(
+    LANDMARKS.filter(entry => entry.category === 'BLACK_HOLE').map(entry => entry.id),
+    ['cygnus-x-1', 'm87-star', 'sagittarius-a-star', 'gw150914'],
+  );
+  for (const id of ['gw170817', 'psr-b1919-21'])
+    assert.equal(LANDMARKS.find(entry => entry.id === id)?.category, 'MILESTONE', id);
+
+  const registry = await readFile(
+    new URL('../js/procgen/featured/registry.js', import.meta.url), 'utf8');
+  const rendererFor = id => {
+    const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = registry.match(new RegExp(
+      `\\['${escaped}',\\s*\\{[\\s\\S]{0,180}?renderer:\\s*'([^']+)'`,
+    ));
+    assert.ok(match, id + ': missing featured renderer');
+    return match[1];
+  };
+  for (const id of ['cygnus-x-1', 'm87-star', 'sagittarius-a-star'])
+    assert.equal(rendererFor(id), 'black-hole-lensing-v1', id);
+  assert.equal(rendererFor('gw150914'), 'black-hole-merger-v1');
+  assert.equal(rendererFor('m87-black-hole-image'), 'm87-multi-state');
+});
+
+test('the shared black-hole core preserves the relativistic rendering contract', async () => {
+  const [core, star] = await Promise.all([
+    readFile(new URL('../js/objects/blackHoleVisual.js', import.meta.url), 'utf8'),
+    readFile(new URL('../js/objects/star.js', import.meta.url), 'utf8'),
+  ]);
+
+  for (const name of [
+    'SAGITTARIUS_A_PROFILE', 'M87_PROFILE', 'CYGNUS_X1_PROFILE',
+    'BINARY_VACUUM_PROFILE',
+  ]) assert.match(core, new RegExp(`export const ${name}\\s*=`), name);
+  for (const [id, name] of [
+    ['sagittarius-a', 'SAGITTARIUS_A_PROFILE'], ['m87', 'M87_PROFILE'],
+    ['cygnus-x1', 'CYGNUS_X1_PROFILE'], ['binary-vacuum', 'BINARY_VACUUM_PROFILE'],
+  ]) assert.match(core, new RegExp(`['"]?${id}['"]?:\\s*${name}`), id);
+
+  assert.match(core, /import \{ TEX_TIER \} from ['"]\.\.\/core\/quality\.js['"]/);
+  assert.match(core, /const HIGH_TIER\s*=\s*TEX_TIER\s*===\s*['"]high['"]/);
+  assert.match(core, /const FRAGMENT_PRECISION\s*=\s*HIGH_TIER\s*\?\s*['"]highp['"]\s*:\s*['"]mediump['"]/);
+  for (const field of ['horizonWidth', 'horizonHeight', 'radialSegments', 'angularSegments']){
+    const budget = core.match(new RegExp(
+      `const ${field}\\s*=\\s*HIGH_TIER\\s*\\?\\s*(\\d+)\\s*:\\s*(\\d+)`,
+    ));
+    assert.ok(budget && Number(budget[1]) > Number(budget[2]), field + ': invalid tier budget');
+  }
+  assert.match(core, /function indexedAnnulus\([\s\S]*?geometry\.setIndex\(indices\)/);
+  assert.match(core, /uDoppler[\s\S]*?dopplerAsymmetry:\s*true/);
+  assert.match(core, /BlackHole\.AnalyticLensingMaterial/);
+  assert.match(core, /float upper[\s\S]*?float lower[\s\S]*?upper-warped-disk[\s\S]*?lower-warped-disk/);
+  assert.match(core, /camera\.getWorldQuaternion[\s\S]*?lensing\.quaternion\.copy/);
+  assert.match(core, /BlackHole\.EventHorizonMaterial[\s\S]*?color:\s*0x000000[\s\S]*?transparent:\s*false[\s\S]*?depthWrite:\s*true/);
+  assert.match(core, /trueBlack:\s*true,\s*depthWriting:\s*true/);
+  assert.match(core, /MathUtils\.clamp\(finite\(dt,\s*0\),\s*0,\s*0\.1\)/);
+  const dispose = core.match(/function dispose\(\)\{([\s\S]*?)\n\s*\}\n\n\s*const api/);
+  assert.ok(dispose, 'shared core is missing disposal');
+  assert.match(dispose[1], /if \(disposed\) return;[\s\S]*?disposed\s*=\s*true/);
+  assert.doesNotMatch(core,
+    /new THREE\.(?:TorusGeometry|Sprite|Points)\s*\(|canvasRadial|createRadialGradient|CanvasTexture/);
+
+  assert.match(star, /import \{ createBlackHoleVisual \} from ['"]\.\/blackHoleVisual\.js['"]/);
+  assert.match(star, /update\(simDays,\s*now,\s*camera,\s*dt\)/);
+  assert.match(star, /blackHoleVisual\.update\(dt,\s*camera\)/);
+  assert.doesNotMatch(star, /canvasRadial|createRadialGradient|CanvasTexture|TorusGeometry/);
+});
+
+test('dedicated black holes retain object-specific 3D contexts without blob layers', async () => {
+  const source = await readFile(
+    new URL('../js/procgen/featured/blackHoles.js', import.meta.url), 'utf8');
+  const contexts = {
+    'cygnus-x-1': 'blue-supergiant-companion-and-mass-transfer-stream',
+    'm87-star': 'relativistic-core-and-bipolar-jet',
+    'sagittarius-a-star': 'quiescent-core-and-s-star-orbits',
+  };
+  for (const [id, role] of Object.entries(contexts)){
+    assert.match(source, new RegExp(`['"]${id}['"]:[\\s\\S]{0,260}?context:\\s*['"]${role}['"]`), id);
+  }
+  for (const builder of ['createCygnusContext', 'createM87Context', 'createSagittariusContext'])
+    assert.match(source, new RegExp(`function ${builder}\\(`), builder);
+  assert.match(source, /createBlackHoleVisual\([\s\S]*?core\.update\(step,\s*camera\)/);
+  assert.match(source, /const FRAGMENT_PRECISION\s*=\s*TEX_TIER\s*===\s*['"]high['"]\s*\?\s*['"]highp['"]\s*:\s*['"]mediump['"]/);
+  assert.equal([...source.matchAll(/precision \$\{FRAGMENT_PRECISION\} float/g)].length, 2);
+  assert.match(source, /flatSourceImage\s*=\s*false/);
+  assert.doesNotMatch(source,
+    /new THREE\.(?:TorusGeometry|Points|Sprite|PlaneGeometry)\s*\(|CanvasTexture|createElement\(['"]canvas|gl_PointCoord|\bblob(?:s|Layer)?\b/i);
+});
+
+test('compact-object mergers run once and preserve the GW170817 neutron-star branch', async () => {
+  const source = await readFile(
+    new URL('../js/procgen/exhibits.js', import.meta.url), 'utf8');
+  const blackHoleStart = source.indexOf('function buildBlackHoleMerger(');
+  const neutronStarStart = source.indexOf('function buildNeutronStarMerger(');
+  const mergerEnd = source.indexOf('export function buildGravWave(', neutronStarStart);
+  assert.ok(blackHoleStart >= 0 && neutronStarStart > blackHoleStart && mergerEnd > neutronStarStart);
+  const blackHoleMerger = source.slice(blackHoleStart, neutronStarStart);
+  const neutronStarMerger = source.slice(neutronStarStart, mergerEnd);
+  const mergers = blackHoleMerger + neutronStarMerger;
+
+  assert.match(source, /import \{ createBlackHoleVisual \} from ['"]\.\.\/objects\/blackHoleVisual\.js['"]/);
+  assert.equal([...blackHoleMerger.matchAll(/createBlackHoleVisual\s*\(/g)].length, 3);
+  assert.match(blackHoleMerger, /single-pass-binary-black-hole-inspiral/);
+  assert.match(blackHoleMerger, /gravitational-wave-strain-not-visible-light/);
+  assert.doesNotMatch(blackHoleMerger, /ElectromagneticMergerFlash|updateElectromagneticFlash/);
+  assert.match(blackHoleMerger, /elapsed\s*=\s*Math\.min\(elapsed\s*\+\s*step/);
+  assert.match(neutronStarMerger, /single-pass-binary-neutron-star-kilonova/);
+  assert.match(neutronStarMerger, /preContactCompactObjects\s*=\s*['"]neutron-stars-only['"]/);
+  assert.match(neutronStarMerger, /finalRemnantStatus\s*=\s*['"]uncertain-neutron-star-or-black-hole['"]/);
+  assert.doesNotMatch(neutronStarMerger, /createBlackHoleVisual\s*\(/);
+  assert.doesNotMatch(mergers, /\bcycle\b|(?:elapsed|progress|phase)\s*%|%\s*duration|TorusGeometry/);
+  assert.match(source, /gw\\s\*170817[\s\S]{0,120}?buildNeutronStarMerger[\s\S]{0,80}?buildBlackHoleMerger/);
+});
+
+test('modeled black-hole field stories disclose scientific visualization', () => {
+  for (const id of [
+    'cygnus-x-1', 'm87-star', 'sagittarius-a-star', 'gw150914',
+    'gw150914-first-gravitational-wave',
+  ]){
+    const entry = LANDMARKS.find(candidate => candidate.id === id);
+    assert.ok(entry, id + ': missing catalog entry');
+    const story = landmarkExperience(entry);
+    assert.equal(story.moments[0].kind, 'SCIENTIFIC VISUALIZATION', id);
+    assert.match(story.note, /physically informed visualization/i, id);
   }
 });
 

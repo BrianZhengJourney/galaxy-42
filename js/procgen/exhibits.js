@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { mulberry, hashStr, gaussian } from '../utils/rng.js';
 import { makeGlowTexture } from '../utils/textures.js';
 import { dotTexture } from '../objects/starfield.js';
+import { createBlackHoleVisual } from '../objects/blackHoleVisual.js';
 import { loadTexture } from '../utils/assets.js';
 import { makeNoise3D } from '../utils/noise.js';
 import { landmarkDepth } from '../data/landmarkDepth.js';
@@ -153,76 +154,458 @@ export function buildRemnant(entry){
   }};
 }
 
-/* ---- BLACK HOLE: horizon + accretion disk + photon ring (+ lensing arc) ---- */
-export function buildBlackHole(entry, strongLensing){
-  const group = new THREE.Group();
-  const R = 8;
-  group.add(new THREE.Mesh(new THREE.SphereGeometry(R, 48, 32),
-    new THREE.MeshBasicMaterial({ color: 0x000000 })));
+/* ---- BLACK HOLES + COMPACT-OBJECT MERGERS ------------------------------
+   The same camera-aware relativistic core used in the galaxy centre is used
+   here too.  Event exhibits add only physical context around that core: no
+   painted disk texture, wire photon rings, or reset-loop animation. */
 
-  const diskTex = radialTex([
-    [0.0,'rgba(0,0,0,0)'],[0.30,'rgba(0,0,0,0)'],[0.34,'rgba(255,248,235,.95)'],
-    [0.46,'rgba(255,190,110,.6)'],[0.74,'rgba(255,120,50,.2)'],[1.0,'rgba(120,40,20,0)']]);
-  const disk = new THREE.Mesh(new THREE.PlaneGeometry(R*9, R*9),
-    new THREE.MeshBasicMaterial({ map: diskTex, transparent: true, side: THREE.DoubleSide,
-      blending: THREE.AdditiveBlending, depthWrite: false }));
-  disk.rotation.x = -Math.PI/2 + 0.32;
-  group.add(disk);
-
-  const ringMat = new THREE.MeshBasicMaterial({ color: 0xfff0d8, transparent: true, opacity: 0.9,
-    blending: THREE.AdditiveBlending, depthWrite: false });
-  const photon = new THREE.Mesh(new THREE.TorusGeometry(R*1.12, R*0.03, 8, 96), ringMat);
-  photon.rotation.x = -Math.PI/2 + 0.32; group.add(photon);
-  // the vertical lensed arc (the "Interstellar" halo) — stronger for M87*/lensing
-  const lensed = new THREE.Mesh(new THREE.TorusGeometry(R*1.4, R*0.022, 8, 96), ringMat.clone());
-  lensed.material.opacity = strongLensing ? 0.75 : 0.32; group.add(lensed);
-
-  const halo = glowSprite('rgba(255,200,140,.4)', 'rgba(255,140,60,.12)', 256, R*9);
-  group.add(halo);
-  group.add(starDust('bhstars:' + entry.id, 260, 150, 0xdfe6ff));
-
-  let t = 0;
-  return { group, focusDist: 46, update(dt){ t += dt; disk.rotation.z = t*0.25; } };
+function compactObjectStep(dt){
+  return THREE.MathUtils.clamp(Number.isFinite(dt) ? dt : 0, 0, 0.1);
 }
 
-/* ---- GRAVITATIONAL WAVE: two black holes inspiral + expanding ripples ---- */
-export function buildGravWave(entry){
-  const group = new THREE.Group();
-  const bhs = [0,1].map(() => {
-    const g = new THREE.Group();
-    g.add(new THREE.Mesh(new THREE.SphereGeometry(2.2, 24, 16),
-      new THREE.MeshBasicMaterial({ color: 0x000000 })));
-    g.add(glowSprite('rgba(180,150,255,.6)','rgba(120,90,220,.15)',128, 9));
-    group.add(g); return g;
-  });
-  // expanding ripple rings on the orbital plane
-  const rings = [];
-  for (let i = 0; i < 5; i++){
-    const m = new THREE.Mesh(new THREE.RingGeometry(1, 1.15, 96),
-      new THREE.MeshBasicMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0.4,
-        side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
-    m.rotation.x = -Math.PI/2; group.add(m); rings.push(m);
-  }
-  const flash = glowSprite('rgba(230,240,255,1)','rgba(150,190,255,.5)',128, 1);
-  flash.material.opacity = 0; group.add(flash);
-  group.add(starDust('gwstars:' + entry.id, 300, 150, 0xdfeaff));
+function smoothUnit(value){
+  const x = THREE.MathUtils.clamp(value, 0, 1);
+  return x * x * (3 - 2 * x);
+}
 
-  let t = 0, cycle = 6;
-  return { group, focusDist: 60, update(dt){
-    t += dt; const ph = (t % cycle) / cycle;           // 0→1 inspiral, then merge flash
-    const sep = 20 * (1 - ph) + 3;
-    const om = 0.6 + (1-ph)* -0 + ph*5;                 // faster as they close
-    const ang = t * (1 + ph*4);
-    bhs[0].position.set(Math.cos(ang)*sep, 0, Math.sin(ang)*sep);
-    bhs[1].position.set(-Math.cos(ang)*sep, 0, -Math.sin(ang)*sep);
-    rings.forEach((r, i) => {
-      const rp = ((t*0.5 + i/rings.length) % 1);
-      const rr = 4 + rp*70; r.scale.set(rr, rr, 1);
-      r.material.opacity = 0.4 * (1-rp);
-    });
-    flash.material.opacity = ph > 0.94 ? (ph-0.94)/0.06 * 0.9 : Math.max(0, flash.material.opacity - dt*3);
-    const fs = 6 + (ph>0.94? (ph-0.94)*400 : 0); flash.scale.set(fs, fs, 1);
-  }};
+function blackHoleProfileFor(entry, strongLensing = false){
+  const key = [entry && entry.id, entry && entry.name, entry && entry.designation]
+    .filter(Boolean).join(' ').toLowerCase();
+  if (/cygnus|cyg\s*x-?1/.test(key)) return 'cygnus-x1';
+  if (/m\s*87|pōwehi|powehi|first black hole image/.test(key)) return 'm87';
+  if (/sagittarius|sgr\s*a/.test(key)) return 'sagittarius-a';
+  return strongLensing ? 'm87' : 'sagittarius-a';
+}
+
+function disposeExhibitContents(group){
+  const geometries = new Set(), materials = new Set(), textures = new Set();
+  group.traverse(object => {
+    if (object.geometry && !geometries.has(object.geometry)){
+      geometries.add(object.geometry);
+      object.geometry.dispose();
+    }
+    const list = Array.isArray(object.material)
+      ? object.material : (object.material ? [object.material] : []);
+    for (const material of list){
+      if (materials.has(material)) continue;
+      materials.add(material);
+      const map = material.map;
+      if (map && !textures.has(map) && !(map.userData && map.userData.shared)){
+        textures.add(map);
+        map.dispose();
+      }
+      material.dispose();
+    }
+  });
+  group.clear();
+}
+
+function makeSpacetimeSurface(primary, secondary){
+  const geometry = new THREE.PlaneGeometry(138, 138, 104, 104);
+  geometry.userData.role = 'continuous-spacetime-ripple-surface';
+  const material = new THREE.ShaderMaterial({
+    name: 'Merger.BroadSpacetimeSurface',
+    uniforms: {
+      uTime: { value: 0 },
+      uProgress: { value: 0 },
+      uAfter: { value: 0 },
+      uPrimary: { value: new THREE.Color(primary) },
+      uSecondary: { value: new THREE.Color(secondary) },
+    },
+    vertexShader: `
+      uniform float uTime;
+      uniform float uProgress;
+      uniform float uAfter;
+      varying float vRadius;
+      varying float vHeight;
+      varying float vAngle;
+      void main(){
+        vec3 p = position;
+        float radius = length(p.xy);
+        float angle = atan(p.y, p.x);
+        float envelope = 1.0 - smoothstep(7.0, 68.0, radius);
+        float chirp = sin(radius * 0.42 - uTime * (1.15 + uProgress * 5.2)
+                        + angle * 2.0);
+        chirp *= envelope * (0.20 + uProgress * 0.80) * (1.0 - uProgress);
+        float frontRadius = uAfter * 18.0;
+        float signedFront = radius - frontRadius;
+        float train = sin(signedFront * 0.92)
+                    * exp(-abs(signedFront) * 0.14)
+                    * exp(-uAfter * 0.075)
+                    * smoothstep(0.0, 0.12, uAfter);
+        p.z += chirp * 0.75 + train * 2.1;
+        vRadius = radius;
+        vHeight = abs(chirp) + abs(train);
+        vAngle = angle;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }`,
+    fragmentShader: `
+      uniform float uProgress;
+      uniform float uAfter;
+      uniform vec3 uPrimary;
+      uniform vec3 uSecondary;
+      varying float vRadius;
+      varying float vHeight;
+      varying float vAngle;
+      void main(){
+        float edge = 1.0 - smoothstep(48.0, 68.0, vRadius);
+        float quadrupole = 0.5 + 0.5 * cos(vAngle * 2.0);
+        vec3 color = mix(uPrimary, uSecondary,
+          0.28 + 0.46 * quadrupole + 0.16 * sin(vRadius * 0.13));
+        float eventGain = 0.45 + uProgress * 0.42
+                        + smoothstep(0.0, 0.2, uAfter) * exp(-uAfter * 0.09);
+        float baseline = (1.0 - uProgress) * 0.006;
+        float alpha = edge * eventGain * (baseline + vHeight * 0.095);
+        if (alpha < 0.002) discard;
+        gl_FragColor = vec4(color, min(alpha, 0.23));
+      }`,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+  });
+  const surface = new THREE.Mesh(geometry, material);
+  surface.name = 'Merger.ContinuousSpacetimeSurface';
+  surface.rotation.x = -Math.PI / 2;
+  surface.position.y = -5.5;
+  surface.renderOrder = 0;
+  return surface;
+}
+
+function makeElectromagneticMergerFlash(primary, secondary){
+  const material = new THREE.ShaderMaterial({
+    name: 'Merger.RestrainedFlashSurface',
+    uniforms: {
+      uOpacity: { value: 0 },
+      uPrimary: { value: new THREE.Color(primary) },
+      uSecondary: { value: new THREE.Color(secondary) },
+    },
+    vertexShader: `
+      varying vec3 vNormal;
+      varying vec3 vView;
+      void main(){
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vNormal = normalize(normalMatrix * normal);
+        vView = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      uniform float uOpacity;
+      uniform vec3 uPrimary;
+      uniform vec3 uSecondary;
+      varying vec3 vNormal;
+      varying vec3 vView;
+      void main(){
+        float fresnel = pow(1.0 - abs(dot(normalize(vNormal), vView)), 2.2);
+        float energy = fresnel * uOpacity;
+        if (energy < 0.003) discard;
+        gl_FragColor = vec4(mix(uPrimary, uSecondary, fresnel), energy);
+      }`,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+  });
+  const flash = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), material);
+  flash.name = 'Kilonova.RestrainedElectromagneticFlash';
+  flash.userData.signalKind = 'electromagnetic-kilonova-emission';
+  flash.visible = false;
+  flash.renderOrder = 5;
+  return flash;
+}
+
+function updateElectromagneticFlash(flash, after, strength){
+  const active = after > 0 && after < 4.6;
+  flash.visible = active;
+  if (!active){
+    flash.material.uniforms.uOpacity.value = 0;
+    return;
+  }
+  const expansion = 3.5 + after * 13.0;
+  flash.scale.setScalar(expansion);
+  flash.material.uniforms.uOpacity.value = strength
+    * Math.exp(-after * 1.05) * Math.min(1, after * 8);
+}
+
+function makeNeutronStar(name, primary, secondary){
+  const material = new THREE.ShaderMaterial({
+    name: 'Merger.NeutronStarSurface',
+    uniforms: {
+      uTime: { value: 0 },
+      uPrimary: { value: new THREE.Color(primary) },
+      uSecondary: { value: new THREE.Color(secondary) },
+    },
+    vertexShader: `
+      varying vec3 vPosition;
+      varying vec3 vNormal;
+      varying vec3 vView;
+      void main(){
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vPosition = position;
+        vNormal = normalize(normalMatrix * normal);
+        vView = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      uniform float uTime;
+      uniform vec3 uPrimary;
+      uniform vec3 uSecondary;
+      varying vec3 vPosition;
+      varying vec3 vNormal;
+      varying vec3 vView;
+      void main(){
+        float longitude = atan(vPosition.z, vPosition.x);
+        float current = 0.5 + 0.5 * sin(longitude * 9.0
+          + vPosition.y * 3.5 - uTime * 7.0);
+        float pole = pow(abs(normalize(vPosition).y), 2.6);
+        float limb = pow(1.0 - abs(dot(normalize(vNormal), vView)), 2.0);
+        vec3 color = mix(uPrimary, uSecondary, 0.20 + current * 0.35);
+        color *= 1.15 + pole * 1.1 + limb * 0.55;
+        gl_FragColor = vec4(color, 1.0);
+      }`,
+    toneMapped: false,
+  });
+  const star = new THREE.Mesh(new THREE.SphereGeometry(2.25, 48, 32), material);
+  star.name = name;
+  star.userData.compactObject = 'neutron-star';
+  return star;
+}
+
+function makeKilonovaShell(){
+  const material = new THREE.ShaderMaterial({
+    name: 'Kilonova.BluePolarRedEquatorialEjecta',
+    uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } },
+    vertexShader: `
+      varying vec3 vNormalObject;
+      varying vec3 vNormalView;
+      varying vec3 vView;
+      void main(){
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vNormalObject = normalize(normal);
+        vNormalView = normalize(normalMatrix * normal);
+        vView = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      uniform float uTime;
+      uniform float uOpacity;
+      varying vec3 vNormalObject;
+      varying vec3 vNormalView;
+      varying vec3 vView;
+      void main(){
+        float polar = pow(abs(vNormalObject.y), 2.2);
+        float banding = 0.78 + 0.22 * sin(atan(vNormalObject.z,
+          vNormalObject.x) * 7.0 + vNormalObject.y * 9.0 - uTime * 0.45);
+        float shell = pow(1.0 - abs(dot(vNormalView, vView)), 1.45);
+        vec3 redEquator = vec3(1.0, 0.16, 0.055);
+        vec3 bluePole = vec3(0.24, 0.70, 1.0);
+        vec3 color = mix(redEquator, bluePole, polar);
+        float alpha = uOpacity * shell * banding * (0.58 + polar * 0.42);
+        if (alpha < 0.003) discard;
+        gl_FragColor = vec4(color, alpha);
+      }`,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+  });
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 40), material);
+  shell.name = 'Kilonova.AnisotropicEjectaShell';
+  shell.visible = false;
+  return shell;
+}
+
+export function buildBlackHole(entry, strongLensing){
+  const group = new THREE.Group();
+  const profile = blackHoleProfileFor(entry, strongLensing);
+  const radius = profile === 'cygnus-x1' ? 7.2 : (profile === 'm87' ? 8.7 : 8.2);
+  const core = createBlackHoleVisual({
+    profile,
+    radius,
+    lensingOpacity: strongLensing ? 1.16 : 1,
+    name: `LandmarkBlackHole.${entry && entry.id ? entry.id : profile}`,
+  });
+  group.add(core.group);
+  group.add(starDust(`bhstars:${entry && entry.id ? entry.id : profile}`, 260, 150, 0xdfe6ff));
+  group.userData.blackHoleProfile = profile;
+
+  let disposed = false;
+  return {
+    group,
+    focusDist: profile === 'm87' ? 55 : 50,
+    update(dt, camera){
+      if (disposed) return;
+      core.update(compactObjectStep(dt), camera);
+    },
+    dispose(){
+      if (disposed) return;
+      disposed = true;
+      core.dispose();
+      disposeExhibitContents(group);
+    },
+  };
+}
+
+function buildBlackHoleMerger(entry){
+  const group = new THREE.Group();
+  const stars = starDust(`gwstars:${entry.id}`, 300, 150, 0xdfeaff);
+  const surface = makeSpacetimeSurface(0x7197d8, 0xb6c9f5);
+  surface.name = 'GW150914.NonElectromagneticSpacetimeStrainSurface';
+  surface.userData.signalKind = 'gravitational-wave-strain-not-visible-light';
+  const primary = createBlackHoleVisual({
+    profile: 'binary-vacuum', radius: 2.35,
+    diskOpacity: 0, lensingOpacity: 0.96,
+    phase: 0.2, name: 'GW150914.PrimaryVacuumBlackHole',
+  });
+  const secondary = createBlackHoleVisual({
+    profile: 'binary-vacuum', radius: 2.08,
+    diskOpacity: 0, lensingOpacity: 0.88,
+    phase: 1.4, name: 'GW150914.SecondaryVacuumBlackHole',
+  });
+  const remnant = createBlackHoleVisual({
+    profile: 'binary-vacuum', radius: 3.35,
+    diskOpacity: 0, lensingOpacity: 1.35,
+    phase: 2.2, name: 'GW150914.RemnantBlackHole',
+  });
+  remnant.group.visible = false;
+  remnant.group.scale.setScalar(0.01);
+  group.add(surface, stars, primary.group, secondary.group, remnant.group);
+  group.userData.eventModel = 'single-pass-binary-black-hole-inspiral';
+  group.userData.emissionCaveat = 'No electromagnetic counterpart is depicted; the blue surface visualizes gravitational-wave strain.';
+
+  const duration = 12;
+  let elapsed = 0, angle = 0, disposed = false;
+  return {
+    group, focusDist: 62,
+    update(dt, camera){
+      if (disposed) return;
+      const step = compactObjectStep(dt);
+      elapsed = Math.min(elapsed + step, 240);
+      const progress = THREE.MathUtils.clamp(elapsed / duration, 0, 1);
+      const eased = smoothUnit(progress);
+      angle = (angle + step * THREE.MathUtils.lerp(
+        0.42, 5.9, progress * progress)) % (Math.PI * 2);
+      const separation = THREE.MathUtils.lerp(16.5, 2.15, eased);
+      const vertical = Math.sin(progress * Math.PI) * 1.25;
+      primary.group.position.set(Math.cos(angle) * separation, vertical * 0.28,
+        Math.sin(angle) * separation);
+      secondary.group.position.set(-Math.cos(angle) * separation, -vertical * 0.28,
+        -Math.sin(angle) * separation);
+
+      const mergeBlend = smoothUnit((progress - 0.90) / 0.10);
+      const pairScale = Math.max(0.01, 1 - mergeBlend);
+      primary.group.scale.setScalar(pairScale);
+      secondary.group.scale.setScalar(pairScale);
+      primary.group.visible = progress < 1;
+      secondary.group.visible = progress < 1;
+      remnant.group.visible = mergeBlend > 0;
+      remnant.group.scale.setScalar(0.01 + mergeBlend * 0.99);
+
+      const after = Math.max(0, elapsed - duration);
+      surface.material.uniforms.uTime.value = elapsed;
+      surface.material.uniforms.uProgress.value = progress;
+      surface.material.uniforms.uAfter.value = after;
+      primary.update(step, camera);
+      secondary.update(step, camera);
+      remnant.update(step, camera);
+    },
+    dispose(){
+      if (disposed) return;
+      disposed = true;
+      primary.dispose();
+      secondary.dispose();
+      remnant.dispose();
+      disposeExhibitContents(group);
+    },
+  };
+}
+
+function buildNeutronStarMerger(entry){
+  const group = new THREE.Group();
+  const stars = starDust(`gwstars:${entry.id}`, 300, 150, 0xdfeaff);
+  const surface = makeSpacetimeSurface(0x4f9dff, 0xff5638);
+  const flash = makeElectromagneticMergerFlash(0xd8efff, 0xff8251);
+  const primary = makeNeutronStar('GW170817.PrimaryNeutronStar', 0xe5f7ff, 0x72b8ff);
+  const secondary = makeNeutronStar('GW170817.SecondaryNeutronStar', 0xfff1e5, 0xff7756);
+  const remnant = makeNeutronStar('GW170817.HotUncertainCompactRemnant', 0xe5e9ff, 0x858da8);
+  remnant.material.name = 'Merger.UncertainCompactRemnantSurface';
+  remnant.userData.compactObject = 'uncertain-neutron-star-or-black-hole';
+  remnant.userData.scienceCaveat = 'GW170817 final remnant type is unresolved.';
+  const ejecta = makeKilonovaShell();
+  remnant.scale.setScalar(0.01);
+  remnant.visible = false;
+  group.add(surface, stars, primary, secondary, remnant, ejecta, flash);
+  group.userData.eventModel = 'single-pass-binary-neutron-star-kilonova';
+  group.userData.preContactCompactObjects = 'neutron-stars-only';
+  group.userData.finalRemnantStatus = 'uncertain-neutron-star-or-black-hole';
+
+  const duration = 11;
+  let elapsed = 0, angle = Math.PI * 0.25, disposed = false;
+  return {
+    group, focusDist: 62,
+    update(dt, _camera){
+      if (disposed) return;
+      const step = compactObjectStep(dt);
+      elapsed = Math.min(elapsed + step, 240);
+      const progress = THREE.MathUtils.clamp(elapsed / duration, 0, 1);
+      const eased = smoothUnit(progress);
+      angle = (angle + step * THREE.MathUtils.lerp(
+        0.46, 6.4, progress * progress)) % (Math.PI * 2);
+      const separation = THREE.MathUtils.lerp(15.2, 2.18, eased);
+      primary.position.set(Math.cos(angle) * separation, 0.3,
+        Math.sin(angle) * separation);
+      secondary.position.set(-Math.cos(angle) * separation, -0.3,
+        -Math.sin(angle) * separation);
+      primary.rotation.y = (primary.rotation.y + step * 2.7) % (Math.PI * 2);
+      secondary.rotation.y = (secondary.rotation.y - step * 3.1) % (Math.PI * 2);
+      primary.material.uniforms.uTime.value = elapsed;
+      secondary.material.uniforms.uTime.value = elapsed + 0.7;
+
+      const mergeBlend = smoothUnit((progress - 0.90) / 0.10);
+      const pairScale = Math.max(0.01, 1 - mergeBlend);
+      primary.scale.setScalar(pairScale);
+      secondary.scale.setScalar(pairScale);
+      primary.visible = progress < 1;
+      secondary.visible = progress < 1;
+      remnant.visible = mergeBlend > 0;
+      remnant.scale.setScalar(0.01 + mergeBlend * 1.14);
+      remnant.rotation.y = (remnant.rotation.y + step * 5.4) % (Math.PI * 2);
+      remnant.material.uniforms.uTime.value = elapsed * 1.4;
+
+      const after = Math.max(0, elapsed - duration);
+      surface.material.uniforms.uTime.value = elapsed;
+      surface.material.uniforms.uProgress.value = progress;
+      surface.material.uniforms.uAfter.value = after;
+      updateElectromagneticFlash(flash, after, 0.48);
+      ejecta.visible = after > 0;
+      if (ejecta.visible){
+        const expansion = 4.0 + after * 5.8;
+        ejecta.scale.set(expansion * 1.18, expansion * 0.72, expansion * 1.18);
+        ejecta.rotation.y = (ejecta.rotation.y + step * 0.18) % (Math.PI * 2);
+        ejecta.material.uniforms.uTime.value = after;
+        ejecta.material.uniforms.uOpacity.value = 0.52
+          * Math.exp(-after * 0.075) * Math.min(1, after * 4);
+      }
+    },
+    dispose(){
+      if (disposed) return;
+      disposed = true;
+      disposeExhibitContents(group);
+    },
+  };
+}
+
+/* GW170817 is a neutron-star event; every GW150914 catalog alias uses the
+   vacuum black-hole branch. Both timelines run once, then hold the remnant. */
+export function buildGravWave(entry){
+  const key = `${entry && entry.id ? entry.id : ''} ${entry && entry.name ? entry.name : ''}`
+    .toLowerCase();
+  return /gw\s*170817/.test(key)
+    ? buildNeutronStarMerger(entry)
+    : buildBlackHoleMerger(entry);
 }
 
 /* ---- distant GALAXY exhibit: a small procedural spiral ---- */
@@ -297,15 +680,6 @@ export function buildAmbient(entry){
   group.add(starDust('amb:' + (entry ? entry.id : 'x'), 500, 160, 0xbfd4ff));
   group.add(glowSprite('rgba(120,200,255,.25)', 'rgba(80,140,220,.05)', 256, 60));
   return { group, focusDist: 80, update(){} };
-}
-
-function radialTex(stops){
-  const c = document.createElement('canvas'); c.width = c.height = 256;
-  const g = c.getContext('2d');
-  const grd = g.createRadialGradient(128,128,0,128,128,128);
-  for (const [p, col] of stops) grd.addColorStop(p, col);
-  g.fillStyle = grd; g.fillRect(0,0,256,256);
-  return new THREE.CanvasTexture(c);
 }
 
 /* ---- REAL IMAGE PLATE: a famous photograph as a flat, camera-facing billboard

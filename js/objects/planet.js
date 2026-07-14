@@ -3,6 +3,10 @@
    orbit from simDays — angle = phase + 2π·t/T, real relative periods. */
 
 import * as THREE from 'three';
+import {
+  keplerPositionAtEccentricAnomaly,
+  sStarPositionAtDays,
+} from '../data/sStars.js';
 import { makePlanetTexture, makeRingTexture } from '../utils/textures.js';
 import { displayPosition, heliocentric, julianDate } from '../data/ephemeris.js';
 import { loadTexture } from '../utils/assets.js';
@@ -154,17 +158,7 @@ export class Planet {
     }
     if (b.kepler){
       // eccentric Kepler orbit (S-cluster stars around Sgr A*)
-      const K = b.kepler;
-      const M = (K.phase + 2 * Math.PI * simDays / K.period) % (2 * Math.PI);
-      let E = M;
-      for (let k = 0; k < 8; k++)
-        E = E - (E - K.e * Math.sin(E) - M) / (1 - K.e * Math.cos(E));
-      const x = K.a * (Math.cos(E) - K.e);
-      const z = K.a * Math.sqrt(1 - K.e * K.e) * Math.sin(E);
-      const cn = Math.cos(K.node), sn = Math.sin(K.node);
-      const xr = x * cn - z * sn, zr = x * sn + z * cn;
-      const ci = Math.cos(K.incl), si = Math.sin(K.incl);
-      return out.set(xr, -zr * si, zr * ci);
+      return sStarPositionAtDays(b.kepler, simDays, out);
     }
     const ang = b.phase + 2 * Math.PI * simDays / b.period;
     return out.set(Math.cos(ang) * b.dist, 0, Math.sin(ang) * b.dist);
@@ -213,14 +207,11 @@ export class Planet {
 /* orbit path for a Kepler body (S-stars): sample its eccentric ellipse */
 export function buildKeplerOrbit(cfg, color = 0x3fa8c8, opacity = 0.33){
   const K = cfg.kepler, seg = 240, pos = new Float32Array(seg * 3);
+  const point = new THREE.Vector3();
   for (let i = 0; i < seg; i++){
     const E = (i / seg) * Math.PI * 2;
-    const x = K.a * (Math.cos(E) - K.e);
-    const z = K.a * Math.sqrt(1 - K.e * K.e) * Math.sin(E);
-    const cn = Math.cos(K.node), sn = Math.sin(K.node);
-    const xr = x * cn - z * sn, zr = x * sn + z * cn;
-    const ci = Math.cos(K.incl), si = Math.sin(K.incl);
-    pos[i*3] = xr; pos[i*3+1] = -zr * si; pos[i*3+2] = zr * ci;
+    keplerPositionAtEccentricAnomaly(K, E, point);
+    pos[i*3] = point.x; pos[i*3+1] = point.y; pos[i*3+2] = point.z;
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));

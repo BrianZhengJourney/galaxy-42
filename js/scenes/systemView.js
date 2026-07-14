@@ -88,7 +88,7 @@ export class SystemView {
   }
 
   update(dt, simDays, now, camera){
-    this.star.update(simDays, now);
+    this.star.update(simDays, now, camera, dt);
     for (const p of this.planets){
       p.update(simDays, dt, now);
       if (camera) p.syncSun(camera);

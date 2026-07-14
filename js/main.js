@@ -838,8 +838,10 @@ class App {
     const s = this.systemView.star;
     this.focus = s;
     this.audio.select();
-    this.rig.minDist = s.cfg.coreRadius * 2;
-    this.rig.flyTo({ getTarget: () => ORIGIN, dist: s.cfg.coreRadius * 4.5, dur: 1.25 });
+    const detailScale = s.cfg.blackhole ? 8 : 2;
+    const viewScale = s.cfg.blackhole ? 13 : 4.5;
+    this.rig.minDist = s.cfg.coreRadius * detailScale;
+    this.rig.flyTo({ getTarget: () => ORIGIN, dist: s.cfg.coreRadius * viewScale, dur: 1.25 });
     this.hud.showPanel('STELLAR LOCK', s.cfg.name, s.cfg.cls, s.cfg.info);
     if (this.systemRec && this.systemRec.sol)
       this.hud.setSolEpoch(resolveSolEpoch(this.solEpochId));
@@ -868,7 +870,9 @@ class App {
         crumbs.push({ label: this.focus.name,
                       action: this.mode === 'surface' ? () => this.exitSurface()
                             : this.mode === 'sky' ? () => this.exitSky() : null });
-      else if (this.focus && this.focus.isStar) crumbs.push({ label: 'PHOTOSPHERE' });
+      else if (this.focus && this.focus.isStar) crumbs.push({
+        label: this.focus.cfg.blackhole ? 'EVENT HORIZON' : 'PHOTOSPHERE',
+      });
       if (this.mode === 'surface') crumbs.push({ label: 'LOW ORBIT' });
       if (this.mode === 'sky') crumbs.push({ label: 'NIGHT SKY' });
     }

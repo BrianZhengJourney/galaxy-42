@@ -5,6 +5,12 @@ import { buildCrabFeatured } from './crab.js';
 import { buildM87Featured } from './m87.js';
 import { buildPaleBlueDotFeatured } from './paleBlueDot.js';
 import { buildNebulaCollectionFeatured } from './nebulaCollection.js';
+import {
+  buildCygnusX1Featured,
+  buildGW150914Featured,
+  buildM87StarFeatured,
+  buildSagittariusAStarFeatured,
+} from './blackHoles.js';
 import { NEBULA_PROFILE_IDS } from '../../data/nebulaProfiles.js';
 
 function buildCrabAlias(context){
@@ -31,6 +37,18 @@ const FEATURED_BUILDERS = new Map([
   }],
   ['m87-black-hole-image', {
     renderer: 'm87-multi-state', build: buildM87Featured,
+  }],
+  ['cygnus-x-1', {
+    renderer: 'black-hole-lensing-v1', build: buildCygnusX1Featured,
+  }],
+  ['m87-star', {
+    renderer: 'black-hole-lensing-v1', build: buildM87StarFeatured,
+  }],
+  ['sagittarius-a-star', {
+    renderer: 'black-hole-lensing-v1', build: buildSagittariusAStarFeatured,
+  }],
+  ['gw150914', {
+    renderer: 'black-hole-merger-v1', build: buildGW150914Featured,
   }],
   ['pale-blue-dot', {
     renderer: 'pale-blue-dot-multi-state', build: buildPaleBlueDotFeatured,
