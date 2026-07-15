@@ -68,17 +68,27 @@ export class GalaxyView {
 
   /* labels are re-registered whenever we enter the view (manager is shared) */
   registerLabels(){
+    this.focused = null;
     for (const c of this.galaxy.catalog){
       const sprite = c.sprite;
       const entry = this.labels.add(c.name,
         out => sprite.getWorldPosition(out),
-        { fadeDist: 900, cls: 'star' });
+        { fadeDist: 900, selectedOnly: true, cls: 'star' });
       c.labelEntry = entry;
     }
     for (const m of this.landmarkMarks){
       m.marker.labelEntry = this.labels.add(m.marker.name,
-        out => m.sprite.getWorldPosition(out), { fadeDist: 1000, cls: 'landmark' });
+        out => m.sprite.getWorldPosition(out),
+        { fadeDist: 1000, selectedOnly: true, cls: 'landmark' });
     }
+  }
+
+  setFocus(entry){
+    if (this.focused && this.focused.labelEntry)
+      this.focused.labelEntry.selected = false;
+    this.focused = entry || null;
+    if (this.focused && this.focused.labelEntry)
+      this.focused.labelEntry.selected = true;
   }
 
   /* world position of a catalog star (galaxy group slowly rotates) */

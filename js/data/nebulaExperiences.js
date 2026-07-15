@@ -260,6 +260,39 @@ function angleMoment(id, suffix, date, kind, copy, source){
   };
 }
 
+function exactObservationMoment(entry, profile, story){
+  return {
+    id: `${entry.id}-observation`,
+    date: profile.observationDate,
+    kind: 'OBSERVATION',
+    title: story.observation.title,
+    text: story.observation.text,
+    source: profile.observationSource,
+    visual: {
+      state: 'observation', observation: true,
+      theta: 0, phi: Math.PI / 2, distance: 1,
+    },
+  };
+}
+
+function horseheadSplitMoment(entry, profile){
+  if (entry.id !== 'horsehead-nebula') return null;
+  return {
+    id: `${entry.id}-split`,
+    date: 'MODEL + SOURCE',
+    kind: 'SIDE-BY-SIDE COMPARISON',
+    title: 'DEPTH BESIDE THE ORIGINAL SILHOUETTE',
+    text: 'The source image stays flat and unaltered beside the off-axis reconstruction. Compare the ridge, attached neck, and cloud bed without mistaking image color for recovered depth.',
+    source: profile.observationSource,
+    visual: {
+      state: 'split', observation: true,
+      theta: profile.camera.startTheta,
+      phi: profile.camera.startPhi,
+      distance: 1,
+    },
+  };
+}
+
 /**
  * Build the model-first semantic rail for a shared nebula photo-sculpt.
  * Returns null for catalog entries that do not have a reconstruction profile.
@@ -273,29 +306,32 @@ export function nebulaModelExperience(entry){
 
   const sources = profileSources(profile);
   const defaultMoment = `${entry.id}-model`;
+  const splitMoment = horseheadSplitMoment(entry, profile);
+  const observationMoment = exactObservationMoment(entry, profile, story);
+  const moments = [
+    modelMoment(entry.id, story.model, profile.camera,
+      sourceAt(sources, story.model.sourceIndex)),
+    angleMoment(entry.id, 'morphology', 'MORPHOLOGY VIEW', 'SCIENTIFIC 3D MODEL',
+      story.morphology, sourceAt(sources, story.morphology.sourceIndex)),
+    angleMoment(entry.id, 'structure', 'STRUCTURE VIEW', 'SCIENTIFIC 3D MODEL',
+      story.detail, sourceAt(sources, story.detail.sourceIndex)),
+  ];
+  if (splitMoment) moments.push(splitMoment);
+  moments.push(observationMoment);
+
   return {
     summary: story.summary,
     defaultMoment,
-    note: `The exact source observation appears only head-on. Orbiting reveals an observation-registered scientific reconstruction. ${profile.caveat}`,
-    moments: [
-      modelMoment(entry.id, story.model, profile.camera,
-        sourceAt(sources, story.model.sourceIndex)),
-      angleMoment(entry.id, 'morphology', 'MORPHOLOGY VIEW', 'SCIENTIFIC 3D MODEL',
-        story.morphology, sourceAt(sources, story.morphology.sourceIndex)),
-      angleMoment(entry.id, 'structure', 'STRUCTURE VIEW', 'SCIENTIFIC 3D MODEL',
-        story.detail, sourceAt(sources, story.detail.sourceIndex)),
-      {
-        id: `${entry.id}-observation`,
-        date: profile.observationDate,
-        kind: 'OBSERVATION',
-        title: story.observation.title,
-        text: story.observation.text,
-        source: profile.observationSource,
-        visual: {
-          state: 'observation', observation: true,
-          theta: 0, phi: Math.PI / 2, distance: 1,
-        },
-      },
-    ],
+    note: splitMoment
+      ? `MODEL is an off-axis scientific reconstruction. OBSERVATION is the exact flat source. SPLIT keeps that source flat beside the model; it does not turn image pixels into recovered depth. ${profile.caveat}`
+      : `The exact source observation appears only head-on. Orbiting reveals an observation-registered scientific reconstruction. ${profile.caveat}`,
+    ...(splitMoment ? {
+      viewModes: [
+        { id: 'model', label: '3D MODEL', momentId: defaultMoment },
+        { id: 'observation', label: 'OBSERVATION', momentId: observationMoment.id },
+        { id: 'split', label: 'SPLIT', momentId: splitMoment.id },
+      ],
+    } : {}),
+    moments,
   };
 }

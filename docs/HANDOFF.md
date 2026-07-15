@@ -2,7 +2,7 @@
 
 **State:** complete and pushed. **HEAD:** `4d16649` (`4d16649733accbb60663299db330aad1af0f1ffd`).
 **Tests:** 19/19 passing — `npm test` (`node --test test/core.test.mjs`).
-**Repo:** https://github.com/BrianZhengJourney/fable-galaxy
+**Repo:** https://github.com/BrianZhengJourney/galaxy-42
 
 This document summarizes the landmarks/imagery/markers work so another agent (or
 future me) can pick it up cold.

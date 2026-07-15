@@ -49,7 +49,7 @@ const rec = name => STAR_CATALOG.find(r => r.name === name);
 test('journal migrates the legacy brand key without losing visits', () => {
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   const storage = new Map([
-    ['fable-galaxy-journal-v1', JSON.stringify({ MARS: { visits: 2 } })],
+    ['47-journal-v1', JSON.stringify({ MARS: { visits: 2 } })],
   ]);
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
@@ -63,7 +63,7 @@ test('journal migrates the legacy brand key without losing visits', () => {
     const journal = new Journal();
     assert.equal(journal.visitCount('MARS'), 2);
     assert.deepEqual(
-      JSON.parse(storage.get('47-journal-v1')),
+      JSON.parse(storage.get('galaxy-42-journal-v1')),
       { MARS: { visits: 2 } },
     );
   }finally{
@@ -614,6 +614,33 @@ test('the upgraded nebula collection opens on 3D models and preserves exact obse
     assert.ok(Math.abs(observation.visual.phi-Math.PI/2) < 0.001,
       id + ': source observation must preserve the exact head-on plate');
   }
+
+  const horsehead = landmarkExperience(
+    LANDMARKS.find(entry => entry.id === 'horsehead-nebula'));
+  assert.deepEqual(horsehead.viewModes, [
+    {
+      id: 'model', label: '3D MODEL',
+      momentId: 'horsehead-nebula-model',
+    },
+    {
+      id: 'observation', label: 'OBSERVATION',
+      momentId: 'horsehead-nebula-observation',
+    },
+    {
+      id: 'split', label: 'SPLIT',
+      momentId: 'horsehead-nebula-split',
+    },
+  ], 'Horsehead must expose explicit view-mode controls without HUD hardcoding');
+  const horseheadSplit = horsehead.moments.find(moment =>
+    moment.id === 'horsehead-nebula-split');
+  assert.ok(horseheadSplit, 'Horsehead is missing its side-by-side source comparison');
+  assert.equal(horseheadSplit.kind, 'SIDE-BY-SIDE COMPARISON');
+  assert.equal(horseheadSplit.visual.state, 'split');
+  assert.equal(horseheadSplit.visual.observation, true);
+  assert.equal(horseheadSplit.source,
+    nebulaProfile('horsehead-nebula').observationSource);
+  assert.match(horseheadSplit.text, /flat and unaltered beside the off-axis reconstruction/);
+
   const rosette=landmarkExperience(
     LANDMARKS.find(entry=>entry.id === 'rosette-nebula'));
   assert.equal(rosette.moments[0].kind,'OBSERVATION',
@@ -851,6 +878,13 @@ test('landmark attribution switches between model and authentic observation', as
     'Carina must not use one bundled observation credit for every presentation');
 });
 
+test('mode transitions clear hover text before entering non-interactive scenes', async () => {
+  const main = await readFile(new URL('../js/main.js', import.meta.url), 'utf8');
+  assert.match(main, /enterLandmark\(entry\)\{\s*this\._clearHover\(\)/);
+  assert.match(main,
+    /_clearHover\(\)\{[\s\S]{0,420}?this\.hovered = null;[\s\S]{0,180}?this\.hud\.hover\(0, 0, null\)/);
+});
+
 test('observation docks reserve a camera-space gutter around the 3D hero', async () => {
   const dock = await readFile(
     new URL('../js/procgen/featured/observationDock.js', import.meta.url), 'utf8');
@@ -904,6 +938,13 @@ test('retained shared nebula heroes use continuous procedural surfaces, not phot
     'continuous heroes must not instantiate source-depth relief fragments');
   assert.match(collection, /projector appears only in the explicit observation state/);
   assert.match(collection, /presentationState === 'observation'/);
+  assert.match(collection, /createObservationDock\(\{[\s\S]{0,180}?Horsehead\.SourceComparison/,
+    'Horsehead split mode must use an independent flat source plate');
+  assert.match(collection, /presentationState === 'split'/);
+  assert.match(collection, /comparisonDock\.setVisible\(split\)/);
+  assert.match(collection, /persistentThreeDimensionalModel=split/,
+    'split attribution must disclose that the 3D model remains visible');
+  assert.match(collection, /activePresentation=split[\s\S]{0,100}?'model-plus-source-observation'/);
   assert.match(sculptA, /orion-continuous-ionization-bowl/);
   assert.match(sculptA, /horsehead-barnard33-authored-silhouette/);
   assert.match(sculptA, /ring-main-thick-torus/);

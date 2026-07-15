@@ -1,4 +1,4 @@
-/* 47 — app orchestrator.
+/* GALAXY 42 — app orchestrator.
    Two scales: 'system' (a star system, Sol or procedural) and 'galaxy'
    (80k-star spiral). Zoom out of a system far enough and you ascend to the
    galactic frame; click a catalog star to hyperjump back down. */
@@ -51,7 +51,7 @@ class App {
     document.getElementById('stage').appendChild(this.renderer.domElement);
     // device tier + adaptive DPR/bloom (sets the initial pixel ratio)
     this.quality = new QualityManager(this);
-    console.info('[47] render tier:', detectTier());
+    console.info('[GALAXY 42] render tier:', detectTier());
 
     this.camera = new THREE.PerspectiveCamera(52, this.W / this.H, 0.1, 4000);
     this.time = new TimeSystem();
@@ -78,7 +78,6 @@ class App {
     this.mission = null;
     this.transferOrigin = null;
     this.journal = new Journal();
-    this.hud.buildCatalog(STAR_CATALOG, rec => this.enterSystem(rec, true), this.journal);
     this.tours = new TourEngine(this);
     this._wireTourMenu();
     this.photometer = new Photometer();
@@ -303,6 +302,7 @@ class App {
   }
 
   enterLandmark(entry){
+    this._clearHover();
     if (this.mode !== 'landmark'){
       this._hideBodyStory();
       this._preLandmarkRate = this.time.rate;
@@ -330,7 +330,6 @@ class App {
     this.hud.hidePanel();
     this.hud.setMinimapVisible(false);
     this.hud.setEventsVisible(false);
-    this.hud.setCatalogVisible(false);
     this.hud.setSector('LANDMARK');
     const cat = LANDMARK_CATEGORIES.find(c => c.key === entry.category);
     const experience = landmarkExperience(entry);
@@ -467,6 +466,7 @@ class App {
   /* ================= scale transitions ================= */
 
   _buildSystem(rec){
+    this._clearHover();
     this._leaveLandmark();
     this._hideBodyStory();
     this.cancelMission();
@@ -481,7 +481,6 @@ class App {
     this.systemRec = rec;
     this.journal.markVisited(rec.name, this.time.fmtDate());
     if (this.photometer) this.photometer.reset();
-    this.hud.buildCatalog(STAR_CATALOG, r => this.enterSystem(r, true), this.journal);
     this.mode = 'system';
     this.hud.setMode('system');
     this.focus = null;
@@ -490,7 +489,6 @@ class App {
     this.rig.maxDist = this.systemView.maxDist();
     this.hud.setSector(rec.name);
     this.hud.setMinimapVisible(true);
-    this.hud.setCatalogVisible(false);
     this.hud.hidePanel();
     if (rec.sol){
       this.hud.showSolEpochs(SOL_EPOCHS, id => this.setSolEpoch(id));
@@ -558,6 +556,7 @@ class App {
 
   exitToGalaxy(){
     if (this.mode === 'galaxy') return;
+    this._clearHover();
     const wasLandmark = this.mode === 'landmark';
     const leftLandmark = this._leaveLandmark();
     if (!wasLandmark && !leftLandmark) this._hideBodyStory();
@@ -580,7 +579,6 @@ class App {
     this.rig.maxDist = 1600;
     this.hud.setSector('GALACTIC FRAME');
     this.hud.setMinimapVisible(false);
-    this.hud.setCatalogVisible(true);
     this.hud.hideSolEpochs();
     this.hud.setEventsVisible(false);
     this.hud.hidePanel();
@@ -746,6 +744,7 @@ class App {
   /* ---- third scale: low orbit around a solid world ---- */
   enterSurface(p){
     if (this.mode !== 'system' || !p || p.isStar || !canDescend(p)) return;
+    this._clearHover();
     this._hideBodyStory();
     this.focus = p;
     this.hud.flash();
@@ -768,6 +767,7 @@ class App {
   /* ---- night sky: stand on Earth, real sky for the sim date ---- */
   enterSky(){
     if (this.mode !== 'system' || !this.systemRec || this.systemRec.name !== 'SOL') return;
+    this._clearHover();
     this._hideBodyStory();
     if (this.solEpochId !== DEFAULT_SOL_EPOCH)
       this.setSolEpoch(DEFAULT_SOL_EPOCH, { updateHash: false });
@@ -943,6 +943,7 @@ class App {
     if (hit && hit.isLandmark) return this.enterLandmark(hit.landmark);
     if (!hit){
       this.galaxyFocus = null;
+      this.galaxyView.setFocus(null);
       this.hud.hidePanel();
       this.rig.flyTo({ getTarget: () => ORIGIN, dist: 780, phi: 0.9, dur: 1.4 });
       return;
@@ -951,6 +952,7 @@ class App {
       return this.enterSystem(hit.rec);
     }
     this.galaxyFocus = hit;
+    this.galaxyView.setFocus(hit);
     const v = new THREE.Vector3();
     this.rig.flyTo({
       getTarget: () => this.galaxyView.starWorldPos(hit, v),
@@ -1023,6 +1025,17 @@ class App {
     }
   }
 
+  _clearHover(){
+    if (this.hovered){
+      if (this.hovered.setHover) this.hovered.setHover(false);
+      if (this.hovered.labelEntry) this.hovered.labelEntry.hovered = false;
+    }
+    this.hovered = null;
+    this.hud.hover(0, 0, null);
+    this.renderer.domElement.style.cursor = 'default';
+    document.getElementById('reticle').classList.remove('show');
+  }
+
   _onKey(e){
     if (this.hud.landmarksVisible()){
       if (e.key === 'Escape'){
@@ -1049,6 +1062,7 @@ class App {
         else this.exitToGalaxy();
       } else {
         this.galaxyFocus = null;
+        this.galaxyView.setFocus(null);
         this.hud.hidePanel();
         this.rig.flyTo({ getTarget: () => ORIGIN, dist: 780, phi: 0.9, dur: 1.4 });
       }

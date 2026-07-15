@@ -1,15 +1,15 @@
 {
-  "name": "47",
+  "name": "galaxy-42",
   "version": "1.0.0",
   "description": "An interactive 3D atlas of worlds and cosmic landmarks through time.",
   "type": "module",
   "scripts": {
     "start": "python3 dev-server.py 8741",
-    "test": "node --test test/core.test.mjs"
+    "test": "node --test test/*.test.mjs"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/BrianZhengJourney/fable-galaxy.git"
+    "url": "https://github.com/BrianZhengJourney/galaxy-42.git"
   },
   "license": "MIT"
 }

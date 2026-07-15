@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>47 — WORLDS THROUGH TIME</title>
+<title>GALAXY 42 — WORLDS THROUGH TIME</title>
 <link rel="stylesheet" href="css/main.css">
 <script type="importmap">
 { "imports": {
@@ -25,7 +25,7 @@
 
 <!-- compact brand + contextual navigation -->
 <div id="hdr">
-  <button id="brandBtn" type="button" aria-label="Return to galaxy map">47</button>
+  <button id="brandBtn" type="button" aria-label="GALAXY 42 — return to galaxy map">GALAXY 42</button>
   <div id="crumbs"></div>
 </div>
 
@@ -43,7 +43,7 @@
   aria-describedby="lmIntro" inert aria-hidden="true">
   <div class="lm-head">
     <div class="lm-heading">
-      <span class="lm-kicker">47 · INTERACTIVE FIELD ATLAS</span>
+      <span class="lm-kicker">GALAXY 42 · INTERACTIVE FIELD ATLAS</span>
       <h2 class="lm-title" id="lmTitle">EXPLORE</h2>
       <p id="lmIntro">A curated collection of the atlas’s highest-fidelity cosmic environments.</p>
       <span id="lmCount"></span>
@@ -99,12 +99,6 @@
   <div id="p-details" inert aria-hidden="true"><div id="p-rows"></div></div>
 </div>
 
-<!-- star catalog (galaxy mode) -->
-<div id="catalog">
-  <div class="cat-title">STELLAR CATALOG</div>
-  <div id="catList"></div>
-</div>
-
 <div id="hoverTag"></div>
 <div id="reticle"><i></i><i></i><i></i><i></i></div>
 <div id="labels"></div>
@@ -147,6 +141,7 @@
 
 <!-- semantic story time: discrete observations, evidence and model forecasts -->
 <section id="storyline" aria-label="Story timeline" inert aria-hidden="true">
+  <div id="storyViewModes" role="group" aria-label="Choose model or observation view"></div>
   <div id="storyCopy" role="tabpanel" aria-live="polite">
     <div id="storyMeta"><span id="storyDate"></span><span id="storyKind"></span></div>
     <div id="storyTitle"></div>

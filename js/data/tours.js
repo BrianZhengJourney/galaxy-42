@@ -44,7 +44,7 @@ export const TOURS = [
         go: app => app.tourJump('TRAPPIST-1') },
       { title: 'TRAPPIST-1 E', text: 'The best habitability candidate of the seven: 0.92 Earth radii, likely tidally locked — eternal sunset along the terminator.',
         go: app => app.tourFocus('TRAPPIST-1 E') },
-      { title: 'HOME', text: 'Jump complete. The catalog remembers every system you survey — the rest of the arm is still dark.',
+      { title: 'HOME', text: 'Jump complete. The atlas remembers every system you survey — the rest of the arm is still dark.',
         go: app => app.goHome() }
     ]
   }

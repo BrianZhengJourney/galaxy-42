@@ -1,5 +1,5 @@
 /* Cockpit HUD: target panel with instrument-ticking digits, breadcrumbs,
-   hover tag, stellar catalog list, time console and the ambient hum. */
+   hover tag, time console and the ambient hum. */
 
 import { landmarkImage } from '../data/landmarkImages.js';
 
@@ -341,6 +341,21 @@ export class Hud {
   showStoryline(experience, onSelect){
     this._storyExperience = experience;
     this._storySelect = onSelect;
+    const views = $('storyViewModes');
+    views.innerHTML = '';
+    const viewModes = Array.isArray(experience.viewModes) ? experience.viewModes : [];
+    views.classList.toggle('show', viewModes.length > 0);
+    for (const mode of viewModes){
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'story-view';
+      button.dataset.mode = mode.id;
+      button.dataset.moment = mode.momentId;
+      button.textContent = mode.label;
+      button.setAttribute('aria-pressed', 'false');
+      button.addEventListener('click', () => this.selectStoryMoment(mode.momentId));
+      views.appendChild(button);
+    }
     const track = $('storyTrack');
     track.innerHTML = '';
     for (const [index, moment] of experience.moments.entries()){
@@ -382,6 +397,15 @@ export class Hud {
     if (!this._storyExperience) return;
     const moment = this._storyExperience.moments.find(m => m.id === id)
       || this._storyExperience.moments[0];
+    const activeState = moment.visual && moment.visual.state;
+    for (const button of document.querySelectorAll('#storyViewModes .story-view')){
+      const viewMoment = this._storyExperience.moments.find(candidate =>
+        candidate.id === button.dataset.moment);
+      const active = viewMoment && viewMoment.visual &&
+        viewMoment.visual.state === activeState;
+      button.classList.toggle('active', !!active);
+      button.setAttribute('aria-pressed', String(!!active));
+    }
     let activeNode = null;
     for (const node of document.querySelectorAll('#storyTrack .story-node')){
       const active = node.dataset.moment === moment.id;
@@ -423,6 +447,7 @@ export class Hud {
     document.body.classList.remove('story-mode');
     const storyline = $('storyline');
     storyline.classList.remove('show');
+    $('storyViewModes').classList.remove('show');
     setInteractive(storyline, false);
     setInteractive($('console'), true);
     this._storyExperience = null; this._storySelect = null;
@@ -521,28 +546,6 @@ export class Hud {
     $('mapFrame').classList.toggle('hidden', !on);
     $('photometer').classList.toggle('show', on);   // instruments travel together
   }
-  setCatalogVisible(on){ $('catalog').classList.toggle('show', on); }
-
-  buildCatalog(entries, onPick, journal){
-    const list = $('catList');
-    list.innerHTML = '';
-    for (const rec of entries){
-      const known = !journal || journal.isVisited(rec.name);
-      const item = document.createElement('div');
-      item.className = 'cat-item' + (known ? '' : ' unk');
-      const n = document.createElement('span'); n.className = 'n'; n.textContent = rec.name;
-      const c = document.createElement('span'); c.className = 'c';
-      c.textContent = known ? rec.cls : 'UNSURVEYED';
-      item.appendChild(n); item.appendChild(c);
-      item.addEventListener('click', () => onPick(rec));
-      list.appendChild(item);
-    }
-    if (journal){
-      const title = document.querySelector('#catalog .cat-title');
-      title.textContent = 'STELLAR CATALOG · ' + journal.surveyed() + '/' + entries.length + ' SURVEYED';
-    }
-  }
-
   /* ---- readouts + time console ---- */
   updateReadouts(time){
     $('roDate').textContent = time.fmtDate();

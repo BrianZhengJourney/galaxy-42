@@ -1,8 +1,8 @@
-# 47
+# GALAXY 42
 
 **An Interactive Atlas of Worlds Through Time.**
 
-47 is a multi-scale 3D atlas where planets and cosmic landmarks unfold
+GALAXY 42 is a multi-scale 3D atlas where planets and cosmic landmarks unfold
 as visual timelines. It combines a real-time Sol system, a procedural galaxy,
 and source-grounded field stories in an instrument-like interface. Pure ES
 modules + [three.js](https://threejs.org) load from a CDN import map, with **no
@@ -47,8 +47,9 @@ The physical black-hole models are available at `#/sagittarius-a` and at the
 
 Nine more nebulae use dedicated photo-sculpt 3D profiles: Orion, Horsehead,
 Ring, Helix, Lagoon, Cat's Eye, Veil, Rosette, and Trifid. Each starts as the
-source observation, then unfolds into a depth-aligned triangulated color relief
-and an object-specific morphology sculpt as you orbit. The former generic
+scientific 3D interpretation and offers the exact source observation as an
+explicit head-on view. Horsehead also has a prominent `3D MODEL / OBSERVATION /
+SPLIT` control for direct side-by-side comparison. The former generic
 soft-cloud box is not part of this path. Preview any one with
 `http://127.0.0.1:8741/#/landmark/<id>`; for example:
 
@@ -102,7 +103,7 @@ Three nested scales, seamlessly connected:
 - **Low orbit** — descend to any solid world: seeded fBm terrain, water
   shells, cloud decks and a rim-glow atmosphere, generated on arrival.
 
-Thirty-two catalogued destinations, including:
+Thirty-two destinations, including:
 
 - **Confirmed exoplanet systems** (NASA Exoplanet Archive data, inlined):
   TRAPPIST-1's seven worlds, Proxima b/d, Kepler-186b–f, 51 Peg b,
@@ -203,7 +204,7 @@ tools/build-starcatalog.mjs  regenerates data/gen from HYG + d3-celestial
     skyView.js        night sky: real stars/constellations over an observer
   ui/
     photometer.js     live transit light-curve instrument
-    hud.js            panels (ticking digits), crumbs, catalog, console, hum
+    hud.js            panels (ticking digits), crumbs, stories, console, ambience
     labels.js         projected HTML labels with distance fade
   utils/
     rng.js            seeded mulberry32 + helpers (determinism everywhere)

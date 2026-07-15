@@ -13,6 +13,7 @@ import { detectTier } from '../../core/quality.js';
 import { buildPhotoRelief } from './nebulaMatter.js';
 import { buildNebulaSculptA } from './nebulaSculptA.js';
 import { buildNebulaSculptB } from './nebulaSculptB.js';
+import { createObservationDock } from './observationDock.js';
 
 const DISPLAY_HEIGHT = 62;
 const CONTINUOUS_HERO_FAMILIES = new Set([
@@ -347,6 +348,9 @@ export function buildNebulaCollectionFeatured({ entry, image }){
   const tracker = makeTracker();
   const group = new THREE.Group();
   group.name = `nebula-collection:${entry.id}`;
+  const modelStage = new THREE.Group();
+  modelStage.name = `nebula-model-stage:${entry.id}`;
+  group.add(modelStage);
   let disposed = false;
   let time = 0;
   let reveal = 1;
@@ -358,8 +362,21 @@ export function buildNebulaCollectionFeatured({ entry, image }){
 
   const fallback = tracker.texture(solidTexture(0x11111b));
   const projector = buildProjector(group, fallback, tracker);
+  const comparisonDock = entry.id === 'horsehead-nebula'
+    ? createObservationDock({
+      image,
+      name: 'Horsehead.SourceComparison',
+      width: 40,
+      offsetX: 1,
+      offsetY: 0,
+      heroRadius: 24,
+      gutter: 3,
+      accent: 0x62e6ff,
+    })
+    : null;
+  if (comparisonDock) group.add(comparisonDock.group);
   const starReveal = { value: 1 };
-  const family = buildFamilyLayer(group, profile, budget, tracker,
+  const family = buildFamilyLayer(modelStage, profile, budget, tracker,
     `nebula-family:${entry.id}`);
   setFamilyReveal(family, 1);
   family.visible = true;
@@ -369,13 +386,13 @@ export function buildNebulaCollectionFeatured({ entry, image }){
   function attachPhotoRelief(source, depthImage, aspect){
     if (disposed || !source) return;
     if (!alignedStars){
-      alignedStars = buildAlignedStars(group, source, depthImage, aspect, profile,
+      alignedStars = buildAlignedStars(modelStage, source, depthImage, aspect, profile,
         budget, tracker, starReveal, `nebula-stars:${entry.id}`);
       if (alignedStars) alignedStars.visible = reveal > .002;
     }
     if (!continuousHero && !photoRelief){
       photoRelief = buildPhotoRelief({
-        parent: group,
+        parent: modelStage,
         image: source,
         depthImage,
         aspect,
@@ -419,7 +436,7 @@ export function buildNebulaCollectionFeatured({ entry, image }){
     group.userData.observationAspect = aspect;
   });
 
-  group.userData.renderer = 'nebula-model-first-sculpt-v3';
+  group.userData.renderer = 'nebula-model-first-sculpt-v4';
   group.userData.family = profile.family;
   group.userData.qualityTier = tier;
   group.userData.qualityBudget = { ...budget };
@@ -432,8 +449,15 @@ export function buildNebulaCollectionFeatured({ entry, image }){
   group.userData.scientificCaveat = profile.caveat ||
     'Depth and off-axis structure are an interpretive visualization, not tomography.';
   group.userData.observationPolicy =
-    'The exact source RGB projector appears only in the explicit observation state; model states always show inferred 3D.';
+    'The exact source RGB projector appears only in the explicit observation state; SPLIT uses a separate camera-facing flat source plate beside the inferred 3D model.';
   group.userData.observationRequested=false;
+  group.userData.observationVisible=false;
+  group.userData.persistentThreeDimensionalModel=false;
+  group.userData.presentationStates = comparisonDock
+    ? ['model', 'observation', 'split'] : ['model', 'observation'];
+  group.userData.splitPolicy = comparisonDock
+    ? 'The model remains spatial and off-axis at left; the source stays flat, unaltered, and camera-facing at right.'
+    : null;
 
   const cameraConfig = profile.camera || {};
   const revealAngles = profile.reconstruction &&
@@ -447,6 +471,10 @@ export function buildNebulaCollectionFeatured({ entry, image }){
   const observationFull = Math.cos(THREE.MathUtils.degToRad(
     Math.max(.1, exactAngleDeg)));
   const localCamera = new THREE.Vector3();
+  const cameraWorldQuaternion = new THREE.Quaternion();
+  const inverseGroupQuaternion = new THREE.Quaternion();
+  const localCameraRight = new THREE.Vector3();
+  const modelOffsetTarget = new THREE.Vector3();
   return {
     group,
     content: family,
@@ -459,12 +487,17 @@ export function buildNebulaCollectionFeatured({ entry, image }){
     isImage: true,
     modelCredit: SHARED_NEBULA_MODEL_CREDIT,
     setMoment(visual){
-      const observation=visual && (visual.state === 'observation' ||
-        visual.observation === true);
-      presentationState=observation?'observation':'model';
-      group.userData.observationRequested=observation;
-      group.userData.activePresentation=observation
-        ? 'source-observation' : 'scientific-3d-model';
+      const split = !!(comparisonDock && visual && visual.state === 'split');
+      const observation = !!(!split && visual &&
+        (visual.state === 'observation' || visual.observation === true));
+      presentationState = split ? 'split' : observation ? 'observation' : 'model';
+      if (comparisonDock) comparisonDock.setVisible(split);
+      group.userData.observationRequested=observation || split;
+      group.userData.observationVisible=split;
+      group.userData.persistentThreeDimensionalModel=split;
+      group.userData.activePresentation=split
+        ? 'model-plus-source-observation'
+        : observation ? 'source-observation' : 'scientific-3d-model';
       if(!observation){
         reveal=1;
         starReveal.value=1;
@@ -492,6 +525,7 @@ export function buildNebulaCollectionFeatured({ entry, image }){
         // angles while preserving pixel-for-pixel registration head-on.
         const observationTarget = presentationState === 'observation'
           ? smoothstep(observationStart, observationFull, front) : 0;
+        const split = presentationState === 'split';
         const revealTarget = 1 - observationTarget;
         reveal = damp(reveal, revealTarget, 4.2, dt);
         projectorOpacity = damp(projectorOpacity, observationTarget, 5.6, dt);
@@ -502,7 +536,22 @@ export function buildNebulaCollectionFeatured({ entry, image }){
         family.visible = reveal > .002;
         family.scale.z = .14 + reveal*.86;
         setFamilyReveal(family, reveal * (.62 + reveal*.38));
+
+        // SPLIT is a true comparison layout: keep the 3D reconstruction on
+        // the camera's left while the independent source plate occupies the
+        // right gutter. The model transform returns to identity in MODEL and
+        // OBSERVATION so all pre-existing nebula views remain unchanged.
+        camera.getWorldQuaternion(cameraWorldQuaternion);
+        group.getWorldQuaternion(inverseGroupQuaternion).invert();
+        localCameraRight.set(1, 0, 0)
+          .applyQuaternion(cameraWorldQuaternion)
+          .applyQuaternion(inverseGroupQuaternion);
+        modelOffsetTarget.copy(localCameraRight).multiplyScalar(split ? -12 : 0);
+        modelStage.position.lerp(modelOffsetTarget, 1 - Math.exp(-7 * dt));
+        const modelScale = damp(modelStage.scale.x, split ? .78 : 1, 7, dt);
+        modelStage.scale.setScalar(modelScale);
       }
+      if (comparisonDock) comparisonDock.update(dt, camera);
       if (photoRelief) photoRelief.update(reveal);
       family.rotation.y = Math.sin(time*.045) * .022;
       family.rotation.x = Math.sin(time*.031+.8) * .009;
@@ -518,6 +567,7 @@ export function buildNebulaCollectionFeatured({ entry, image }){
         pendingDepth.removeAttribute('src');
         pendingDepth = null;
       }
+      if (comparisonDock) comparisonDock.dispose();
       tracker.dispose();
       group.userData.disposed = true;
     },
