@@ -1,14 +1,16 @@
 /* Procedural audio — no samples or downloaded assets.
    A restrained deep-space ambience (sub-harmonic drift, filtered cabin air,
-   and distant harmonic shimmer) plus soft navigation cues. Audio remains off
-   until setEnabled(true) is called from a user gesture. */
+   and distant harmonic shimmer) plus clear navigation cues. Sound is armed on
+   by default, but the WebAudio graph stays lazy until unlock() runs inside the
+   visitor's first gesture, as required by browser autoplay policies. */
 
 const MASTER_LEVEL = 0.105;
 
 export class AudioEngine {
   constructor(){
     this.ctx = null;
-    this.enabled = false;
+    this.enabled = true;
+    this.unlocked = false;
     this.master = null;
     this.bed = null;
     this.sfxBus = null;
@@ -45,7 +47,7 @@ export class AudioEngine {
       }
 
       this.sfxBus = ctx.createGain();
-      this.sfxBus.gain.value = 0.72;
+      this.sfxBus.gain.value = 0.82;
       this.sfxBus.connect(this.master);
       this._buildCueSpace();
       this._buildBed();
@@ -68,9 +70,9 @@ export class AudioEngine {
     const delay = this._cueDelay = ctx.createDelay(0.8);
     delay.delayTime.value = 0.19;
     const feedback = ctx.createGain();
-    feedback.gain.value = 0.16;
+    feedback.gain.value = 0.13;
     const out = ctx.createGain();
-    out.gain.value = 0.26;
+    out.gain.value = 0.22;
     delay.connect(feedback);
     feedback.connect(delay);
     delay.connect(out);
@@ -230,21 +232,8 @@ export class AudioEngine {
     return pan;
   }
 
-  setEnabled(on){
-    on = Boolean(on);
-    if (on && !this._ensure()) return false;
-    if (!this.ctx){
-      this.enabled = false;
-      return true;
-    }
-
-    this.enabled = on;
-    if (on){
-      try{
-        const resumed = this.ctx.resume?.();
-        resumed?.catch?.(() => {});
-      }catch(e){ /* another user gesture can resume it later */ }
-    }
+  _rampMaster(target, duration, floor = 0){
+    if (!this.ctx || !this.master) return;
     const t = this.ctx.currentTime;
     if (this.master.gain.cancelAndHoldAtTime){
       this.master.gain.cancelAndHoldAtTime(t);
@@ -252,7 +241,34 @@ export class AudioEngine {
       this.master.gain.cancelScheduledValues(t);
       this.master.gain.setValueAtTime(this.master.gain.value, t);
     }
-    this.master.gain.linearRampToValueAtTime(on ? MASTER_LEVEL : 0, t + (on ? 1.15 : 0.55));
+    if (floor > 0 && this.master.gain.value < floor)
+      this.master.gain.setValueAtTime(floor, t);
+    this.master.gain.linearRampToValueAtTime(target, t + duration);
+  }
+
+  unlock(){
+    if (!this.enabled) return true;
+    if (!this._ensure()){
+      this.enabled = false;
+      this.unlocked = false;
+      return false;
+    }
+    this.unlocked = true;
+    try{
+      const resumed = this.ctx.resume?.();
+      resumed?.catch?.(() => { this.unlocked = false; });
+    }catch(e){ this.unlocked = false; }
+    // A small floor makes the first interaction cue audible while the ambient
+    // bed still arrives gently instead of snapping on.
+    this._rampMaster(MASTER_LEVEL, 0.55, MASTER_LEVEL * 0.42);
+    return true;
+  }
+
+  setEnabled(on){
+    this.enabled = Boolean(on);
+    if (this.enabled) return this.unlock();
+    this.unlocked = false;
+    if (this.ctx) this._rampMaster(0, 0.35);
     return true;
   }
 
@@ -327,34 +343,43 @@ export class AudioEngine {
     const now = this.ctx.currentTime;
     if (now - this._lastHoverAt < 0.055) return;
     this._lastHoverAt = now;
-    this._tone(1420, 0.055, { gain: 0.012, to: 1760, pan: 0.16, wet: 0.06 });
-    this._tone(2840, 0.045, { gain: 0.0035, delay: 0.01, pan: -0.12, wet: 0.04 });
+    this._tone(1420, 0.06, { gain: 0.017, to: 1810, attack: 0.004, pan: 0.16, wet: 0.04 });
+    this._tone(2840, 0.05, { gain: 0.005, delay: 0.008, attack: 0.003, pan: -0.12, wet: 0.03 });
+  }
+
+  button(){
+    this._noiseBurst(0.055, 2100, {
+      gain: 0.014, sweep: 1180, attack: 0.003, pan: -0.05, wet: 0.025, q: 1.45,
+    });
+    this._tone(690, 0.105, {
+      type: 'triangle', gain: 0.031, to: 835, attack: 0.004, pan: 0.06, wet: 0.07,
+    });
   }
 
   select(){
-    this._tone(392, 0.17, { type: 'triangle', gain: 0.026, to: 412, pan: -0.1, wet: 0.18 });
-    this._tone(587.33, 0.26, { gain: 0.017, delay: 0.055, pan: 0.16, wet: 0.26 });
+    this._tone(440, 0.16, { type: 'triangle', gain: 0.038, to: 466, attack: 0.006, pan: -0.1, wet: 0.12 });
+    this._tone(659.25, 0.24, { gain: 0.024, delay: 0.045, attack: 0.008, pan: 0.16, wet: 0.20 });
   }
 
   jump(){
     // Air gathers before the low gravitational pulse; no abrasive sawtooth.
     this._noiseBurst(0.82, 170, {
-      gain: 0.052, sweep: 2500, attack: 0.31, pan: 0.08, wet: 0.38, q: 0.62,
+      gain: 0.065, sweep: 2800, attack: 0.25, pan: 0.08, wet: 0.30, q: 0.68,
     });
-    this._tone(72, 0.78, { gain: 0.046, to: 38, attack: 0.035, pan: -0.05, wet: 0.28 });
-    this._tone(310, 0.42, { gain: 0.009, to: 185, delay: 0.26, pan: 0.2, wet: 0.4 });
+    this._tone(76, 0.78, { gain: 0.060, to: 38, attack: 0.018, pan: -0.05, wet: 0.22 });
+    this._tone(330, 0.42, { gain: 0.018, to: 185, delay: 0.22, attack: 0.008, pan: 0.2, wet: 0.30 });
   }
 
   ascend(){
     this._noiseBurst(0.72, 240, {
-      gain: 0.022, sweep: 1750, attack: 0.36, pan: -0.08, wet: 0.34, q: 0.72,
+      gain: 0.032, sweep: 1950, attack: 0.30, pan: -0.08, wet: 0.26, q: 0.78,
     });
-    this._tone(98, 0.82, { gain: 0.032, to: 196, attack: 0.08, pan: -0.16, wet: 0.28 });
-    this._tone(146.83, 0.76, { gain: 0.016, to: 293.66, delay: 0.1, pan: 0.2, wet: 0.36 });
+    this._tone(98, 0.82, { gain: 0.044, to: 196, attack: 0.045, pan: -0.16, wet: 0.22 });
+    this._tone(146.83, 0.76, { gain: 0.024, to: 293.66, delay: 0.08, attack: 0.012, pan: 0.2, wet: 0.28 });
   }
 
   back(){
-    this._tone(330, 0.22, { gain: 0.022, to: 220, pan: 0.12, wet: 0.16 });
-    this._tone(165, 0.3, { gain: 0.011, to: 110, delay: 0.045, pan: -0.12, wet: 0.22 });
+    this._tone(349.23, 0.20, { gain: 0.034, to: 220, attack: 0.006, pan: 0.12, wet: 0.10 });
+    this._tone(174.61, 0.30, { gain: 0.018, to: 110, delay: 0.035, attack: 0.008, pan: -0.12, wet: 0.16 });
   }
 }

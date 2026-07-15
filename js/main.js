@@ -57,13 +57,12 @@ class App {
     this.time = new TimeSystem();
     this.rig = new CameraRig(this.camera);
     this.labels = new LabelManager(document.getElementById('labels'));
+    this.audio = new AudioEngine();
     this.hud = new Hud(this);
 
     this.raycaster = new THREE.Raycaster();
     this.ndc = new THREE.Vector2();
     this._tmp = new THREE.Vector3();
-    this.audio = new AudioEngine();
-
     this.galaxyView = new GalaxyView(this.labels);
     this.mode = 'system';
     this.systemView = null;

@@ -570,6 +570,17 @@ export class Hud {
     const app = this.app, time = app.time;
     const setRate = r => { time.setRate(r); this.syncTimeButtons(time.rate); };
 
+    this._syncAudioButton();
+    this._armAudioUnlock();
+    document.addEventListener('click', event => {
+      const target = event.target;
+      const control = target && target.closest
+        ? target.closest('button, [role="button"], .tour-btn, .ev-item, .cancel')
+        : null;
+      if (!control || control === $('audioBtn') || control.hasAttribute('disabled')) return;
+      app.audio.button();
+    }, true);
+
     $('scrub').addEventListener('input', e => {
       time.setRate(time.scrubToRate(parseFloat(e.target.value)));
       this.syncTimeButtons(time.rate);
@@ -585,15 +596,45 @@ export class Hud {
   }
 
   /* ---- ambient soundscape + UI sounds (see core AudioEngine) ---- */
-  _toggleAudio(){
+  _syncAudioButton(available = true){
     const btn = $('audioBtn');
-    const ok = this.app.audio.setEnabled(!this.app.audio.enabled);
-    if (!ok){ btn.textContent = 'SOUND N/A'; return; }
-    if (this.app.audio.enabled){
-      btn.textContent = 'SOUND ON'; btn.classList.add('on');
-      this.app.audio.select();
-    } else {
-      btn.textContent = 'SOUND OFF'; btn.classList.remove('on');
+    if (!available){
+      btn.textContent = 'SOUND N/A';
+      btn.classList.remove('on');
+      btn.setAttribute('aria-pressed', 'false');
+      btn.disabled = true;
+      return;
     }
+    const on = this.app.audio.enabled;
+    btn.disabled = false;
+    btn.textContent = on ? 'SOUND ON' : 'SOUND OFF';
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', String(on));
+  }
+
+  _armAudioUnlock(){
+    const audioButton = $('audioBtn');
+    const cleanup = () => {
+      window.removeEventListener('pointerdown', unlock, true);
+      window.removeEventListener('keydown', unlock, true);
+    };
+    const unlock = event => {
+      if (event.target === audioButton || audioButton.contains(event.target)) return;
+      if (!this.app.audio.enabled){ cleanup(); return; }
+      const ok = this.app.audio.unlock();
+      if (!ok) this._syncAudioButton(false);
+      cleanup();
+    };
+    window.addEventListener('pointerdown', unlock, true);
+    window.addEventListener('keydown', unlock, true);
+  }
+
+  _toggleAudio(){
+    const turningOn = !this.app.audio.enabled;
+    if (!turningOn) this.app.audio.button();
+    const ok = this.app.audio.setEnabled(turningOn);
+    if (!ok){ this._syncAudioButton(false); return; }
+    this._syncAudioButton();
+    if (turningOn) this.app.audio.button();
   }
 }

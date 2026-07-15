@@ -105,31 +105,38 @@ function withWindow(value, run){
   }
 }
 
-test('audio stays inert until the user explicitly enables it', () => {
+test('audio is armed by default but stays lazy until a user gesture unlocks it', () => {
   const audio = new AudioEngine();
-  assert.equal(audio.enabled, false);
+  assert.equal(audio.enabled, true);
   assert.equal(audio.ctx, null);
+  audio.hover();
+  assert.equal(audio.ctx, null, 'hover alone must not create a blocked AudioContext');
   assert.equal(audio.setEnabled(false), true);
+  assert.equal(audio.enabled, false);
   assert.equal(audio.ctx, null);
 });
 
-test('enable builds the procedural bed and cues preserve the public API', () => {
+test('unlock builds the procedural bed and distinct cues preserve the public API', () => {
   withWindow({ AudioContext: FakeAudioContext }, () => {
     const audio = new AudioEngine();
-    assert.equal(audio.setEnabled(true), true);
+    assert.equal(audio.ctx, null);
+    assert.equal(audio.unlock(), true);
     assert.equal(audio.enabled, true);
+    assert.equal(audio.unlocked, true);
     assert.equal(audio.ctx.resumeCalls, 1);
     assert.equal(audio.master.gain.value, 0.105);
     assert.ok(audio.ctx.oscillatorStarts.length >= 15, 'ambient oscillators started');
     assert.equal(audio.ctx.bufferStarts.length, 1, 'looping ambient noise started');
 
     const beforeCues = audio.ctx.oscillatorStarts.length;
+    audio.button();
     audio.select();
     audio.jump();
     audio.ascend();
     audio.back();
-    assert.ok(audio.ctx.oscillatorStarts.length >= beforeCues + 8);
-    assert.equal(audio.ctx.bufferStarts.length, 3, 'jump and ascend add two air sweeps');
+    assert.ok(audio.ctx.oscillatorStarts.length >= beforeCues + 9);
+    assert.equal(audio.ctx.bufferStarts.length, 4,
+      'button, jump and ascend add three distinct air transients');
 
     const beforeHover = audio.ctx.oscillatorStarts.length;
     audio.hover();
@@ -138,6 +145,7 @@ test('enable builds the procedural bed and cues preserve the public API', () => 
 
     assert.equal(audio.setEnabled(false), true);
     assert.equal(audio.enabled, false);
+    assert.equal(audio.unlocked, false);
     assert.equal(audio.master.gain.value, 0);
   });
 });
@@ -145,8 +153,9 @@ test('enable builds the procedural bed and cues preserve the public API', () => 
 test('unsupported WebAudio fails cleanly without creating partial state', () => {
   withWindow({}, () => {
     const audio = new AudioEngine();
-    assert.equal(audio.setEnabled(true), false);
+    assert.equal(audio.unlock(), false);
     assert.equal(audio.enabled, false);
+    assert.equal(audio.unlocked, false);
     assert.equal(audio.ctx, null);
   });
 });
