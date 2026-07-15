@@ -95,7 +95,8 @@
   <div id="lmCardBtns">
     <button class="lm-btn icon" id="lmPrev" type="button" aria-label="Previous story">&#8592;</button>
     <button class="lm-btn hidden" id="lmWave" type="button"></button>
-    <button class="lm-btn" id="lmMore" type="button" aria-expanded="false">MORE +</button>
+    <button class="lm-btn icon" id="lmMore" type="button" aria-expanded="false"
+      aria-label="Show object details" title="Show object details">&#9432;</button>
     <button class="lm-btn" id="lmAction" type="button"></button>
     <button class="lm-btn icon" id="lmExit" type="button" aria-label="Close story">&times;</button>
     <button class="lm-btn primary icon" id="lmNext" type="button" aria-label="Next story">&#8594;</button>
@@ -168,10 +169,11 @@
 <section id="storyline" aria-label="Story timeline" inert aria-hidden="true">
   <div id="storyViewModes" role="group" aria-label="Choose model or observation view"></div>
   <div id="storyCopy" role="tabpanel" aria-live="polite">
-    <div id="storyMeta"><span id="storyDate"></span><span id="storyKind"></span></div>
+    <div id="storyMeta" aria-hidden="true"><span id="storyDate"></span><span id="storyKind"></span></div>
     <div id="storyTitle"></div>
     <div id="storyText"></div>
-    <a id="storySource" target="_blank" rel="noopener">SOURCE &#8599;</a>
+    <a id="storySource" target="_blank" rel="noopener" aria-label="Open source"
+      title="Open source">&#8599;</a>
   </div>
   <div id="storyTrack" role="tablist" aria-label="Milestones" aria-orientation="horizontal"></div>
 </section>

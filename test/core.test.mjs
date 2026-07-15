@@ -835,6 +835,40 @@ test('deep-sky presentation runtime is frame-driven, cancellable and keeps obser
     'selection metadata must reach the app state machine');
 });
 
+test('landmark HUD removes repeated copy without hiding detail or provenance', async () => {
+  const [markup, css, hud] = await Promise.all([
+    readFile(new URL('../index.html', import.meta.url), 'utf8'),
+    readFile(new URL('../css/main.css', import.meta.url), 'utf8'),
+    readFile(new URL('../js/ui/hud.js', import.meta.url), 'utf8'),
+  ]);
+
+  assert.match(css,
+    /body\[data-mode="landmark"\] #crumbs,[\s\S]{0,140}?#mapBtn,[\s\S]{0,100}?#tourBtn\{ display:none; \}/,
+    'landmark close-ups should not repeat map and breadcrumb navigation');
+  assert.match(css, /#lmCardCat, #lmCardWow\{ display:none; \}/,
+    'object category and summary should not duplicate the active story');
+  assert.match(css, /\.dsp-caption span:first-child\{ display:none; \}/,
+    'the observation plate should show its credit without repeating its mode label');
+  assert.match(css,
+    /body\.deep-sky-presentation:not\(\.deep-sky-split\) #storyCopy,[\s\S]{0,120}?#storyTrack\{ display:none; \}/,
+    'cinematic observation mode should leave only the explicit view switch visible');
+  assert.match(css,
+    /\.story-node\.active span,[\s\S]{0,100}?\.story-node:focus-visible span\{ opacity:1; \}/,
+    'only the active or intentionally inspected milestone label should appear');
+
+  assert.match(markup, /id="lmMore"[^>]+aria-label="Show object details"/,
+    'the compact info control must retain an accessible label');
+  assert.match(hud,
+    /more\.setAttribute\('aria-label', expanded \? 'Hide object details' : 'Show object details'\)/,
+    'expanded detail state must stay explicit to assistive technology');
+  assert.match(markup, /id="storyText"/,
+    'scientific context must remain present in the settled model view');
+  assert.match(markup, /id="storySource"[^>]+aria-label="Open source"/,
+    'source provenance must remain keyboard and screen-reader accessible');
+  assert.match(hud, /source\.setAttribute\('aria-label', 'Source for ' \+ moment\.title\)/,
+    'source links must describe the active chapter');
+});
+
 test('black-hole observation chapters preserve a persistent 3D hero', async () => {
   for (const id of ['cygnus-x-1', 'm87-star', 'sagittarius-a-star', 'gw150914']){
     const experience = landmarkExperience(LANDMARKS.find(entry => entry.id === id));

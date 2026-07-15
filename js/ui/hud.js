@@ -285,13 +285,16 @@ export class Hud {
     const card = $('lmCard'), details = $('lmCardDetails'), more = $('lmMore');
     card.classList.remove('expanded');
     setInteractive(details, false);
-    more.textContent = 'MORE +';
+    more.textContent = 'ⓘ';
     more.setAttribute('aria-expanded', 'false');
+    more.setAttribute('aria-label', 'Show object details');
+    more.title = 'Show object details';
     more.onclick = () => {
       const expanded = card.classList.toggle('expanded');
       setInteractive(details, expanded);
       more.setAttribute('aria-expanded', String(expanded));
-      more.textContent = expanded ? 'LESS −' : 'MORE +';
+      more.setAttribute('aria-label', expanded ? 'Hide object details' : 'Show object details');
+      more.title = expanded ? 'Hide object details' : 'Show object details';
     };
     const act = $('lmAction');
     if (handlers.action){ act.textContent = handlers.action.label; act.classList.remove('hidden'); }
@@ -429,8 +432,18 @@ export class Hud {
     $('storyTitle').textContent = moment.title;
     $('storyText').textContent = moment.text || '';
     const source = $('storySource');
-    if (moment.source){ source.href = moment.source; source.classList.remove('hidden'); }
-    else { source.removeAttribute('href'); source.classList.add('hidden'); }
+    if (moment.source){
+      source.href = moment.source;
+      source.textContent = '↗';
+      source.setAttribute('aria-label', 'Source for ' + moment.title);
+      source.title = 'Open source';
+      source.classList.remove('hidden');
+    } else {
+      source.removeAttribute('href');
+      source.removeAttribute('aria-label');
+      source.removeAttribute('title');
+      source.classList.add('hidden');
+    }
     if (activeNode){
       $('storyCopy').setAttribute('aria-labelledby', activeNode.id);
       this._scrollStoryNodeIntoView(activeNode);
