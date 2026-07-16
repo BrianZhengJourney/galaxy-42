@@ -47,8 +47,8 @@ The physical black-hole models are available at `#/sagittarius-a` and at the
 
 The curated nebula and remnant fields use dedicated photo-sculpt 3D profiles.
 Each opens with a short 1.2-second source-observation hold, keeps the object
-name visible through a 1.2-second reveal, and then exposes `SPLIT /
-OBSERVATION / 3D MODEL` controls for direct comparison. The former generic
+name visible through a 1.2-second reveal, then settles into `SPLIT` with
+`SPLIT / OBSERVATION / 3D MODEL` controls for direct comparison. The former generic
 soft-cloud box is not part of this path. Preview any one with
 `http://127.0.0.1:8741/#/landmark/<id>`; for example:
 
@@ -134,8 +134,8 @@ And on top of the map:
   late-2028 window), then a probe flies the arc. Fully time-reversible.
 - **Captain's log** — visited systems persist in localStorage; unvisited
   stars are UNSURVEYED fog-of-war until you jump in and scan them.
-- **Guided tours** — narrated camera choreography: *The Grand Tour* (Sol)
-  and *Galactic Landmarks* (Sgr A*, the pulsar, TRAPPIST-1).
+- **Guided tour** — narrated camera choreography through the Sol system in
+  *The Grand Tour*.
 - **Deep links** — every view is a shareable URL: `#/trappist-1/e`,
   `#/sol/mars/orbit?t=500`, `#/sol?epoch=1000ma`, `#/galaxy`.
 - **Night-sky mode** (`#/sol/earth/sky`) — stand on Earth and see the *real*

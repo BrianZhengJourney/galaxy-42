@@ -27,25 +27,5 @@ export const TOURS = [
       { title: 'THE LONG VIEW', text: 'Full system at ×4 years per second. Inner planets blur; the ice giants barely creep. That speed ratio is real — 684:1, Mercury to Neptune.',
         go: app => { app.systemOverview(); app.time.setRate(1500); } }
     ]
-  },
-  {
-    name: 'GALACTIC LANDMARKS',
-    desc: 'The neighbourhood’s strangest addresses',
-    steps: [
-      { title: 'THE GALACTIC FRAME', text: '80,000 stars on four spiral arms. The amber contacts are catalogued systems — everything else is procedural background.',
-        go: app => app.exitToGalaxy() },
-      { title: 'SAGITTARIUS A*', text: 'The supermassive black hole at the core: 4.15 million solar masses. The S-cluster stars whip around it on wildly eccentric orbits.',
-        go: app => app.tourJump('SAGITTARIUS A*') },
-      { title: 'STAR S2', text: 'At periapsis S2 passes 120 AU from the horizon at 7,650 km/s — about 2.5% of lightspeed. Its orbit here is the real 16-year ellipse.',
-        go: app => app.tourFocus('S2') },
-      { title: 'PSR B1257+12', text: 'A millisecond pulsar sweeping its beams 161 times a second. Its three planets — Draugr, Poltergeist, Phobetor — were the first ever found, in 1992.',
-        go: app => app.tourJump('PSR B1257+12') },
-      { title: 'TRAPPIST-1', text: 'Seven confirmed rocky worlds around an ultra-cool dwarf, all packed tighter than Mercury’s orbit. Periods here are the measured ones.',
-        go: app => app.tourJump('TRAPPIST-1') },
-      { title: 'TRAPPIST-1 E', text: 'The best habitability candidate of the seven: 0.92 Earth radii, likely tidally locked — eternal sunset along the terminator.',
-        go: app => app.tourFocus('TRAPPIST-1 E') },
-      { title: 'HOME', text: 'Jump complete. The atlas remembers every system you survey — the rest of the arm is still dark.',
-        go: app => app.goHome() }
-    ]
   }
 ];

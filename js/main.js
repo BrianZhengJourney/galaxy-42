@@ -475,6 +475,11 @@ class App {
       moment.id === intro.sequence.modelMomentId);
   }
 
+  _splitMomentForIntro(intro){
+    return intro && intro.experience.moments.find(moment =>
+      moment.id === intro.sequence.splitMomentId);
+  }
+
   _cancelLandmarkIntro({ clearPresentation = false } = {}){
     this._landmarkIntroGeneration++;
     this._landmarkIntro = null;
@@ -496,20 +501,28 @@ class App {
     this.deepSkyPresentation.showModel();
   }
 
-  _settleLandmarkIntro({ snapToModel = false } = {}){
+  _settleLandmarkIntro({ snapToModel = false, settleToSplit = false } = {}){
     const intro = this._landmarkIntro;
     if (!intro || !this.landmarkView) return;
     const model = this._modelMomentForIntro(intro);
+    const split = settleToSplit && this.deepSkyPresentation.ready
+      ? this._splitMomentForIntro(intro) : null;
     this._landmarkIntro = null;
     if (!model){
       this.deepSkyPresentation.showModel();
       return;
     }
-    const visual = model.visual || {};
-    this.landmarkView.setMoment(model, visual.delegate);
-    this.hud.selectStoryMoment(model.id, false);
+    // The reveal still turns onto the full 3D model. Once that turn completes,
+    // settle into the comparison view so the source and reconstruction remain
+    // visible together by default. Explicit 3D/observation controls still take
+    // over immediately, and an unavailable source falls back to model-only.
+    const settledMoment = split || model;
+    const visual = settledMoment.visual || model.visual || {};
+    this.landmarkView.setMoment(settledMoment, visual.delegate);
+    this.hud.selectStoryMoment(settledMoment.id, false);
     this.hud.setLandmarkCredit(this.landmarkView.currentCredit());
-    this.deepSkyPresentation.showModel();
+    if (split) this.deepSkyPresentation.showSplit();
+    else this.deepSkyPresentation.showModel();
     if (snapToModel){
       const factor = visual.distance == null ? 1 : visual.distance;
       this.rig.snap({
@@ -565,7 +578,7 @@ class App {
     }
     if (intro.phase === 'reveal' &&
         intro.elapsed >= intro.sequence.durationSeconds)
-      this._settleLandmarkIntro();
+      this._settleLandmarkIntro({ settleToSplit: true });
   }
 
   _restoreLandmarkClock(){

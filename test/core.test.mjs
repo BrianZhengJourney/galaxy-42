@@ -12,6 +12,7 @@ import { Journal } from '../js/core/journal.js';
 import { ResourceScope } from '../js/procgen/featured/resourceScope.js';
 import { mulberry, hashStr, weighted } from '../js/utils/rng.js';
 import { STAR_CATALOG } from '../js/data/starCatalog.js';
+import { TOURS } from '../js/data/tours.js';
 import { SOL_BODIES } from '../js/data/solData.js';
 import {
   DEFAULT_SOL_EPOCH,
@@ -51,6 +52,11 @@ import {
 } from '../js/data/sStars.js';
 
 const rec = name => STAR_CATALOG.find(r => r.name === name);
+
+test('Tours retains only the Solar System Grand Tour', () => {
+  assert.deepEqual(TOURS.map(tour => tour.name), ['THE GRAND TOUR']);
+  assert.ok(TOURS[0].steps.length > 1);
+});
 
 test('journal migrates the legacy brand key without losing visits', () => {
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
@@ -800,7 +806,13 @@ test('deep-sky presentation runtime is frame-driven, cancellable and keeps obser
     'backgrounded tabs must settle instead of replaying stale animation');
   assert.match(main,
     /matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches[\s\S]{0,100}?_settleLandmarkIntro\(\{ snapToModel: true \}\)/,
-    'reduced-motion users must skip directly to the model');
+    'reduced-motion users must skip the animated switch and retain the model-safe fallback');
+  assert.match(main,
+    /settleToSplit && this\.deepSkyPresentation\.ready[\s\S]{0,900}?const settledMoment = split \|\| model;[\s\S]{0,500}?if \(split\) this\.deepSkyPresentation\.showSplit\(\)/,
+    'a successful observation-to-model reveal must apply the Split moment, selection and presentation together');
+  assert.match(main,
+    /intro\.phase === 'reveal'[\s\S]{0,180}?_settleLandmarkIntro\(\{ settleToSplit: true \}\)/,
+    'only the completed animated model switch should request Split as the default');
 
   const overlayStart = markup.indexOf('<section id="deepSkyPresentation"');
   const overlayEnd = markup.indexOf('</section>', overlayStart);
