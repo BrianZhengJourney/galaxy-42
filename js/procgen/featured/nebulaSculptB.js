@@ -379,12 +379,117 @@ function buildCatsEye(root, profile, quality, tracker, rnd){
 
 function buildVeil(root, profile, quality, tracker, rnd){
   const structure = profile.structure || {};
-  // Every authored shock strand is already selected directly from the source
-  // RGB/depth relief. Additional analytic ribbons were smooth rails laid over
-  // the real filaments, especially obvious edge-on.
-  if (structure.filamentBundles) root.userData.filamentBundles='source-depth-relief';
-  if (structure.speciesLayers) root.userData.speciesLayers='source-depth-relief';
-  if (structure.turbulenceCells) root.userData.turbulenceCells='source-depth-relief';
+  const palette = profile.palette || {};
+  const bundles = structure.filamentBundles || [];
+  const species = structure.speciesLayers || [];
+
+  // Build the blast wave as several physically ordered cooling sheets. Each
+  // surface follows an authored source feature but is offset downstream in Z,
+  // so an orbit reveals the thin shock front, oxygen zone, and broader cooled
+  // gas as separate layers instead of one shallow photographic relief.
+  for (const [bundleIndex, bundle] of bundles.entries()){
+    const basePoints = (bundle.points || []).map(point => vector(point));
+    if (basePoints.length < 2) continue;
+    for (const [layerIndex, layer] of species.entries()){
+      const offset = numeric(bundle.downstreamOffset, 0) + numeric(layer.offset, 0);
+      const points = basePoints.map((point, pointIndex) => {
+        const t = pointIndex / Math.max(1, basePoints.length - 1);
+        return point.clone().add(new THREE.Vector3(
+          Math.sin(t * TAU * 2.2 + bundleIndex) * numeric(bundle.corrugation, .6) * .16,
+          Math.cos(t * TAU * 1.7 + layerIndex) * numeric(bundle.corrugation, .6) * .12,
+          offset + Math.sin(t * TAU * 2.6 + bundleIndex * .8) *
+            numeric(bundle.corrugation, .6) * .72,
+        ));
+      });
+      const spread = Math.max(.5, numeric(bundle.spread, 1));
+      const layerScale = Math.max(.35, numeric(layer.filamentScale, 1));
+      const surface = emissiveSurface(
+        tracker,
+        layer.color || bundle.color || palette.filament || 0x8d9cff,
+        layerIndex === 0 ? palette.warm || 0xf28a63
+          : layerIndex === 1 ? palette.cool || 0x788dff
+          : palette.highlight || 0xe8f4ff,
+        Math.min(.30, numeric(layer.opacity, .24) * (layerIndex ? .82 : .95)),
+        {
+          rim: 1.75 + layerIndex * .16,
+          filaments: 1.1,
+          scale: .34 + layerIndex * .08,
+          phase: bundleIndex * .71 + layerIndex * 1.37,
+          erosion: .34 + layerIndex * .12,
+        },
+      );
+      addContinuousMesh(root, jaggedRibbonGeometry(points, {
+        width: [spread * layerScale * .62, spread * layerScale * 1.02],
+        depth: [Math.max(.12, numeric(layer.thickness, .2) * 1.8),
+          Math.max(.28, numeric(layer.thickness, .2) * 3.2)],
+        segments: quality.high ? 78 : 42,
+        irregularity: .30 + numeric(bundle.corrugation, .6) * .052,
+        phase: bundleIndex + layerIndex * 1.9,
+      }), surface, `veil-cooling-sheet:${bundle.id}:${layer.id}`, tracker, {
+        renderOrder: 2 + layerIndex,
+      });
+    }
+
+    // Fine braided strands sit above the sheet volume and keep the edge-on
+    // view filamentary rather than turning it into a broad glowing ribbon.
+    const strands = Math.max(2, Math.round(
+      numeric(bundle.strandCount, 4) * (quality.high ? 1 : .55)));
+    for (let strand = 0; strand < strands; strand++){
+      const spread = numeric(bundle.spread, 1);
+      const strandPoints = basePoints.map((point, pointIndex) => {
+        const t = pointIndex / Math.max(1, basePoints.length - 1);
+        const phase = strand * 1.73 + bundleIndex * .61;
+        return point.clone().add(new THREE.Vector3(
+          Math.sin(t * TAU * 3.1 + phase) * spread * .24,
+          Math.cos(t * TAU * 2.4 + phase) * spread * .18,
+          numeric(bundle.downstreamOffset, 0) +
+            Math.sin(t * TAU * 2.2 + phase) * numeric(bundle.corrugation, .7),
+        ));
+      });
+      addContinuousMesh(root, sweptFilamentGeometry(strandPoints, {
+        radius: [Math.max(.055, numeric(bundle.width, .12) * (1.05 + rnd() * .55)), .045],
+        depthRatio: 1.35,
+        segments: quality.high ? 74 : 38,
+        radialSegments: quality.high ? 7 : 5,
+        irregularity: .18,
+        phase: strand * .8,
+      }), emissiveSurface(
+        tracker,
+        bundle.color || palette.filament || 0x8d9cff,
+        palette.highlight || 0xe8f4ff,
+        Math.min(.42, numeric(bundle.opacity, .28) * 1.05),
+        { rim: 2.05, filaments: .9, scale: .42, phase: strand + bundleIndex },
+      ), `veil-braided-shock-strand:${bundle.id}:${strand}`, tracker, {
+        renderOrder: 7,
+      });
+    }
+  }
+
+  for (const [cellIndex, cell] of (structure.turbulenceCells || []).entries()){
+    addContinuousMesh(root, organicEllipsoidGeometry({
+      radii: cell.radii || [6, 4, 3],
+      longitude: quality.high ? 42 : 26,
+      latitude: quality.high ? 24 : 16,
+      irregularity: .24,
+      phase: cellIndex * 1.7 + .4,
+      openPolar: .32,
+    }), emissiveSurface(
+      tracker,
+      cellIndex % 2 ? palette.cool || 0x788dff : palette.warm || 0xf28a63,
+      palette.highlight || 0xe8f4ff,
+      .035 + numeric(cell.density, .5) * .055,
+      { rim: 2.15, filaments: 1.2, scale: .48, phase: cellIndex, erosion: .72 },
+    ), `veil-turbulent-downstream-cell:${cellIndex}`, tracker, {
+      position: cell.center,
+      rotationDeg: [12, -18, numeric(cell.rotationDeg, 0)],
+      renderOrder: 0,
+    });
+  }
+
+  root.userData.filamentBundles='layered-corrugated-shock-surfaces';
+  root.userData.speciesLayers='three-dimensional-downstream-cooling-order';
+  root.userData.turbulenceCells='porous-downstream-volumes';
+  root.userData.heroSurfaceMode='layered-volumetric-shock-sheet';
 }
 
 function sheetTransform(point, structure){

@@ -30,7 +30,10 @@ import { LandmarkView } from './scenes/landmarkView.js';
 import { LANDMARKS, LANDMARK_CATEGORIES } from './data/landmarks.js';
 import { landmarkImage } from './data/landmarkImages.js';
 import { landmarkExperience, bodyExperience } from './data/fieldStories.js';
-import { EXPLORE_LANDMARK_IDS, EXPLORE_SECTIONS } from './data/exploreSections.js';
+import {
+  EXPLORE_LANDMARK_IDS,
+  EXPLORE_SECTIONS,
+} from './data/exploreSections.js';
 import { DEFAULT_SOL_EPOCH, SOL_EPOCHS, resolveSolEpoch } from './data/solEpochs.js';
 import { evictEarthEpochTextures } from './utils/earthEpochTextures.js';
 import { evictPlanetEpochTextures } from './utils/planetEpochTextures.js';
@@ -295,14 +298,34 @@ class App {
     this.exploreSections = EXPLORE_SECTIONS.map(section => ({
       ...section,
       items: section.items.map(item => {
+        if (item.kind === 'system'){
+          const rec = STAR_CATALOG.find(candidate => candidate.name === item.target);
+          if (!rec) throw new Error('Explore system missing from star catalog: ' + item.target);
+          return {
+            ...item,
+            entry: {
+              id: item.id,
+              name: item.name,
+              designation: item.designation,
+              kind: 'system',
+              rec,
+            },
+          };
+        }
         const entry = catalog.get(item.id);
         if (!entry) throw new Error('Explore landmark missing from catalog: ' + item.id);
         return { ...item, entry };
       }),
     }));
     this.exploreLandmarks = this.exploreSections
-      .flatMap(section => section.items.map(item => item.entry));
-    this.hud.buildLandmarks(this.exploreSections, e => this.enterLandmark(e));
+      .flatMap(section => section.items.map(item => item.entry))
+      .filter(entry => entry.kind !== 'system');
+    this.hud.buildLandmarks(this.exploreSections, record => {
+      if (record.kind === 'system'){
+        this.hud.setLandmarksVisible(false);
+        this.enterSystem(record.entry.rec, true);
+      } else this.enterLandmark(record.entry);
+    });
     const btn = document.getElementById('landmarkBtn');
     btn.addEventListener('click', e => {
       e.stopPropagation();

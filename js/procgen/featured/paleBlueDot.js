@@ -199,14 +199,60 @@ function stateRoot(group, state){
   return root;
 }
 
-function buildSpacecraftState(root){
+function buildSpacecraftState(root, glowMap){
   const modelSlot = new THREE.Group();
   modelSlot.position.set(0, 3, 0);
   root.add(modelSlot);
+
+  // A restrained route and receding Sun give the spacecraft real visual
+  // context without inventing another observation. The path is an explanatory
+  // trajectory motif, while the loaded NASA model remains the hero object.
+  const context = new THREE.Group();
+  context.name = 'voyager-deep-space-trajectory-context';
+  context.position.set(0, 0, -10);
+  root.add(context);
+  const route = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-58, -19, -4),
+    new THREE.Vector3(-32, -10, 0),
+    new THREE.Vector3(-7, -1, 2),
+    new THREE.Vector3(24, 11, -1),
+    new THREE.Vector3(58, 23, -8),
+  ]);
+  const routeMesh = new THREE.Mesh(
+    new THREE.TubeGeometry(route, QUALITY.pathSegments, .11,
+      QUALITY.radialSegments, false),
+    new THREE.MeshBasicMaterial({
+      color: 0x68cde2, transparent: true, opacity: .38,
+      depthWrite: false, toneMapped: false,
+    }),
+  );
+  routeMesh.name = 'voyager-explanatory-trajectory-line';
+  context.add(routeMesh);
+  const sun = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: glowMap, color: 0xffc878, transparent: true,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  }));
+  sun.position.set(-58, -19, -4);
+  sun.scale.set(11, 11, 1);
+  context.add(sun);
+  for (let index = 0; index < 5; index++){
+    const marker = new THREE.Mesh(
+      new THREE.SphereGeometry(.23, 10, 7),
+      new THREE.MeshBasicMaterial({ color: 0xa8ecff, toneMapped: false }),
+    );
+    marker.position.copy(route.getPoint(.16 + index * .16));
+    marker.name = 'voyager-route-marker-' + (index + 1);
+    context.add(marker);
+  }
+  const warmKey = new THREE.DirectionalLight(0xffd09b, 3.2);
+  warmKey.position.set(-28, 24, 36);
+  const coolRim = new THREE.DirectionalLight(0x62cfff, 2.4);
+  coolRim.position.set(36, -12, -28);
+  root.add(warmKey, coolRim);
   addPanel(root,
     canvasPanel('VOYAGER 1', '3D visualization model · not an observation', 64),
     0, -37, 4);
-  return modelSlot;
+  return { modelSlot, context, sun };
 }
 
 function buildEarthMoonState(scope, requestTexture, root){
@@ -455,7 +501,8 @@ export function buildPaleBlueDotFeatured(){
   for (const state of Object.values(PALE_BLUE_DOT_STATES))
     states.set(state, stateRoot(group, state));
 
-  const spacecraftSlot = buildSpacecraftState(states.get(PALE_BLUE_DOT_STATES.SPACECRAFT));
+  const spacecraft = buildSpacecraftState(
+    states.get(PALE_BLUE_DOT_STATES.SPACECRAFT), glowMap);
   buildEarthMoonState(scope, requestTexture, states.get(PALE_BLUE_DOT_STATES.EARTH_MOON));
   buildOriginalState(scope, requestTexture, states.get(PALE_BLUE_DOT_STATES.ORIGINAL));
   const cameraSlot = buildCameraOffState(states.get(PALE_BLUE_DOT_STATES.CAMERA_OFF));
@@ -464,7 +511,7 @@ export function buildPaleBlueDotFeatured(){
   buildComparisonState(scope, requestTexture, states.get(PALE_BLUE_DOT_STATES.COMPARE));
 
   loadVoyagerModel(scope, [
-    { root: spacecraftSlot, size: 55, rotation: [.15, -.78, .05] },
+    { root: spacecraft.modelSlot, size: 55, rotation: [.15, -.78, .05] },
     { root: cameraSlot, size: 36, rotation: [.10, -.72, .02] },
     { root: heliopause.modelSlot, size: 8, rotation: [.08, -.45, 0] },
   ]);
@@ -481,6 +528,11 @@ export function buildPaleBlueDotFeatured(){
   group.userData.qualityBudget = QUALITY;
   group.userData.decorativeStarsSeparatedFromObservations = true;
   group.userData.observationPolicy = 'unlit-source-plates-no-star-extraction';
+  group.userData.heroFidelity = {
+    observationAnchor: 'unaltered mission source plates and explicitly labeled reprocessing',
+    spatialHero: 'NASA/JPL Voyager visualization model with lit deep-space route context',
+    comparison: 'flat observation and spacecraft remain separate in split presentation',
+  };
 
   return {
     group,
@@ -496,8 +548,13 @@ export function buildPaleBlueDotFeatured(){
     update(dt){
       if (scope.disposed) return;
       elapsed += dt;
-      if (activeState === PALE_BLUE_DOT_STATES.SPACECRAFT && spacecraftSlot.userData.model)
-        spacecraftSlot.userData.model.rotation.y = -.78 + Math.sin(elapsed * .22) * .18;
+      if (activeState === PALE_BLUE_DOT_STATES.SPACECRAFT){
+        if (spacecraft.modelSlot.userData.model)
+          spacecraft.modelSlot.userData.model.rotation.y = -.78 + Math.sin(elapsed * .22) * .18;
+        const pulse = 1 + Math.sin(elapsed * .72) * .06;
+        spacecraft.sun.scale.set(11 * pulse, 11 * pulse, 1);
+        spacecraft.context.rotation.z = Math.sin(elapsed * .08) * .012;
+      }
       if (activeState === PALE_BLUE_DOT_STATES.HELIOPAUSE){
         const pulse = 1 + Math.sin(elapsed * 2.1) * .18;
         heliopause.marker.scale.setScalar(pulse);

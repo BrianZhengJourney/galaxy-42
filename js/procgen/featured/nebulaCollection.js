@@ -20,6 +20,7 @@ const CONTINUOUS_HERO_FAMILIES = new Set([
   'open-bowl', 'edge-ridge', 'planetary-ring', 'double-ring',
   'star-cavity', 'nested-shell', 'trilobe',
 ]);
+const SOURCE_CONTEXT_HERO_IDS = new Set(['horsehead-nebula', 'veil-nebula']);
 
 const QUALITY = Object.freeze({
   low: Object.freeze({
@@ -156,6 +157,91 @@ function buildProjector(parent, fallback, tracker){
   mesh.renderOrder = 30;
   parent.add(mesh);
   return { mesh, uniforms };
+}
+
+/* Pillars keeps a restrained, low-frequency trace of its source field around
+   the spatial model. Horsehead and Veil benefit from the same visual bridge:
+   their broad emission field remains recognizable while the authored ridge or
+   shock sheet supplies the actual orbitable structure. These curtains are
+   deliberately faint, vanish from behind, and never claim recovered depth. */
+function buildSourceContext(parent, projector, tracker, id){
+  if (!SOURCE_CONTEXT_HERO_IDS.has(id)) return null;
+  const root = new THREE.Group();
+  root.name = `${id}:source-linked-low-frequency-context`;
+  parent.add(root);
+  const opacity = { value: 0 };
+  const layers = id === 'horsehead-nebula'
+    ? [
+        { z: -21, x: -2, scale: 1.07, turn: .035, curve: 1.8, alpha: .18, blur: 3.4 },
+        { z: -34, x: 4, scale: 1.24, turn: -.11, curve: 3.2, alpha: .09, blur: 5.2 },
+      ]
+    : [
+        { z: -12, x: 0, scale: 1.05, turn: -.035, curve: 2.6, alpha: .16, blur: 2.8 },
+        { z: -25, x: -3, scale: 1.22, turn: .12, curve: 4.4, alpha: .075, blur: 4.8 },
+      ];
+  const meshes = [];
+  for (const layer of layers){
+    const material = tracker.material(new THREE.ShaderMaterial({
+      uniforms: {
+        uSource: projector.uniforms.uSource,
+        uReady: projector.uniforms.uReady,
+        uOpacity: opacity,
+        uLayerAlpha: { value: layer.alpha },
+        uBlur: { value: layer.blur },
+        uCurve: { value: layer.curve },
+      },
+      transparent: true,
+      depthWrite: false,
+      depthTest: true,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+      vertexShader: `
+        uniform float uCurve;
+        varying vec2 vUv;
+        void main(){
+          vUv = uv;
+          vec3 p = position;
+          p.z += cos((uv.x-.5)*3.14159265)*uCurve;
+          gl_Position = projectionMatrix*modelViewMatrix*vec4(p,1.0);
+        }`,
+      fragmentShader: `
+        uniform sampler2D uSource;
+        uniform float uReady;
+        uniform float uOpacity;
+        uniform float uLayerAlpha;
+        uniform float uBlur;
+        varying vec2 vUv;
+        void main(){
+          vec3 source = texture2D(uSource,vUv,uBlur).rgb;
+          float hi=max(source.r,max(source.g,source.b));
+          float lo=min(source.r,min(source.g,source.b));
+          float luma=dot(source,vec3(.299,.587,.114));
+          float signal=smoothstep(.025,.31,luma+(hi-lo)*.62);
+          float edge=smoothstep(0.0,.12,vUv.x)*smoothstep(0.0,.12,1.0-vUv.x)
+            *smoothstep(0.0,.12,vUv.y)*smoothstep(0.0,.12,1.0-vUv.y);
+          gl_FragColor=vec4(source,uReady*uOpacity*uLayerAlpha*signal*edge);
+        }`,
+    }));
+    const geometry = tracker.geometry(new THREE.PlaneGeometry(
+      DISPLAY_HEIGHT, DISPLAY_HEIGHT, 18, 12));
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(layer.x, 0, layer.z);
+    mesh.rotation.y = layer.turn;
+    mesh.scale.setScalar(layer.scale);
+    mesh.renderOrder = -4;
+    root.add(mesh);
+    meshes.push(mesh);
+  }
+  return {
+    root,
+    opacity,
+    setAspect(aspect){
+      for (let index = 0; index < meshes.length; index++){
+        const scale = layers[index].scale;
+        meshes[index].scale.set(scale * aspect, scale, scale);
+      }
+    },
+  };
 }
 
 function imagePixels(image, width, height, blur = 0){
@@ -355,6 +441,7 @@ export function buildNebulaCollectionFeatured({ entry, image }){
   let time = 0;
   let reveal = 1;
   let projectorOpacity = 0;
+  let sourceContextOpacity = 0;
   let presentationState = 'model';
   let alignedStars = null;
   let photoRelief = null;
@@ -362,6 +449,7 @@ export function buildNebulaCollectionFeatured({ entry, image }){
 
   const fallback = tracker.texture(solidTexture(0x11111b));
   const projector = buildProjector(group, fallback, tracker);
+  const sourceContext = buildSourceContext(modelStage, projector, tracker, entry.id);
   const comparisonDock = entry.id === 'horsehead-nebula'
     ? createObservationDock({
       image,
@@ -416,6 +504,7 @@ export function buildNebulaCollectionFeatured({ entry, image }){
     const height = source && source.height ? source.height : 1;
     const aspect = width / Math.max(height, 1);
     projector.mesh.scale.x = aspect;
+    if (sourceContext) sourceContext.setAspect(aspect);
     if (source){
       const depthUrl = landmarkDepth(entry.id);
       if (depthUrl){
@@ -444,7 +533,12 @@ export function buildNebulaCollectionFeatured({ entry, image }){
   group.userData.sources = profile.sources || null;
   group.userData.genericSoftClouds = false;
   group.userData.continuousHero = continuousHero;
-  group.userData.photoFragmentsInHero = continuousHero ? false : 'registered-sheet-only';
+  group.userData.photoFragmentsInHero = sourceContext
+    ? 'low-frequency-source-context-only; no depth claim'
+    : continuousHero ? false : 'registered-sheet-only';
+  group.userData.sourceLinkedContext = sourceContext
+    ? 'low-frequency source color only; authored geometry supplies the orbitable structure'
+    : false;
   group.userData.reconstruction = profile.reconstruction || null;
   group.userData.scientificCaveat = profile.caveat ||
     'Depth and off-axis structure are an interpretive visualization, not tomography.';
@@ -526,6 +620,13 @@ export function buildNebulaCollectionFeatured({ entry, image }){
         const observationTarget = presentationState === 'observation'
           ? smoothstep(observationStart, observationFull, front) : 0;
         const split = presentationState === 'split';
+        const contextTarget = presentationState === 'observation'
+          ? 0 : smoothstep(-.12, .91, front);
+        sourceContextOpacity = damp(sourceContextOpacity, contextTarget, 3.8, dt);
+        if (sourceContext){
+          sourceContext.opacity.value = sourceContextOpacity;
+          sourceContext.root.visible = sourceContextOpacity > .002;
+        }
         const revealTarget = 1 - observationTarget;
         reveal = damp(reveal, revealTarget, 4.2, dt);
         projectorOpacity = damp(projectorOpacity, observationTarget, 5.6, dt);
@@ -557,6 +658,7 @@ export function buildNebulaCollectionFeatured({ entry, image }){
       family.rotation.x = Math.sin(time*.031+.8) * .009;
       group.userData.spatialReveal = reveal;
       group.userData.projectorOpacity = projectorOpacity;
+      group.userData.sourceContextOpacity = sourceContextOpacity;
     },
     dispose(){
       if (disposed) return;

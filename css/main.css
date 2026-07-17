@@ -335,6 +335,13 @@ body.explore-open #hdr, body.explore-open #hints{ opacity:0; pointer-events:none
 .lm-item.has-image::before{ content:""; position:absolute; inset:0; z-index:0;
   background-image:var(--lm-image); background-size:cover; background-position:var(--lm-image-position, center);
   filter:saturate(1.04) brightness(.78) contrast(1.04); transition:filter .3s, transform .55s; }
+.lm-item.system-card{ background:
+  radial-gradient(circle at 72% 23%, rgba(121,230,196,.12), transparent 24%),
+  radial-gradient(circle at 24% 76%, rgba(98,160,255,.10), transparent 35%),
+  linear-gradient(145deg, rgba(4,14,21,.98), rgba(2,6,12,.98)); }
+.lm-item.system-card.has-image::before{ filter:saturate(1.05) brightness(.72) contrast(1.08); }
+.lm-item.system-card.has-image:hover::before,
+.lm-item.system-card.has-image:focus-visible::before{ filter:saturate(1.12) brightness(.84) contrast(1.08); }
 .lm-item::after{ content:""; position:absolute; inset:0; z-index:1;
   background:linear-gradient(180deg, rgba(0,0,0,.12) 0%, rgba(1,5,9,.04) 36%, rgba(1,5,9,.94) 100%); }
 .lm-item:hover, .lm-item:focus-visible{ transform:translateY(-3px); border-color:var(--lm-accent);

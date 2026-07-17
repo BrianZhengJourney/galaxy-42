@@ -133,6 +133,13 @@ Primary sources & licenses:
 Full attribution and license terms are on each linked source page or original
 file page. CC BY / CC BY-SA images require the visible credit shown on the card.
 
+## Generated World Systems covers
+
+- `images/systems/*.png` — six original, system-specific Explore cover images
+  generated for this project with OpenAI's built-in image generation. They are
+  static explanatory artwork, not telescope observations, orbital simulations,
+  or scale-accurate system diagrams.
+
 ## 3D landmark models
 
 - **Pillars of Creation four-cloud positioning model** — Leah Hustak (STScI)

@@ -47,21 +47,21 @@ const BUDGET = Object.freeze(TEX_TIER === 'low' ? {
   futureTriangles: 4100,
   futureDustTriangles: 1100,
 } : {
-  photoLongSide: 320,
-  alignedStars: 720,
-  formationCliffColumns: 168,
-  formationCliffRows: 72,
-  formationPillarRadial: 52,
-  formationPillarRings: 48,
-  formationDustKnots: 620,
-  formationFilaments: 24,
-  homunculusRadial: 58,
-  homunculusRings: 46,
-  homunculusDustKnots: 340,
-  reliefTriangles: 19000,
-  dustTriangles: 4800,
-  futureTriangles: 12200,
-  futureDustTriangles: 3200,
+  photoLongSide: 384,
+  alignedStars: 960,
+  formationCliffColumns: 192,
+  formationCliffRows: 82,
+  formationPillarRadial: 60,
+  formationPillarRings: 54,
+  formationDustKnots: 820,
+  formationFilaments: 30,
+  homunculusRadial: 66,
+  homunculusRings: 52,
+  homunculusDustKnots: 440,
+  reliefTriangles: 28000,
+  dustTriangles: 7200,
+  futureTriangles: 18000,
+  futureDustTriangles: 4800,
 });
 
 const PHOTO_WIDTH = 108;
@@ -1468,6 +1468,11 @@ function makeCosmicCliffsJet(){
   group.userData.materials = [];
   group.userData.presentation = 'source-depth-relief';
   group.userData.genericPointClouds = false;
+  group.userData.heroFidelity = {
+    observationAnchor: 'separate Hubble, Webb, and Eta Carinae source fields',
+    spatialHero: 'source/depth triangulated Cosmic Cliffs relief plus spectroscopy-derived Homunculus geometry',
+    detailPolicy: 'tiered fine geometry and registered stellar sources; no generic cloud box',
+  };
   return group;
 }
 
@@ -1552,6 +1557,68 @@ function makeAlignedWebbStars(scope, photo, depth, softMap, parent){
   return { points, count: stars.length };
 }
 
+/* The filtered triangle relief preserves fine rims but can read as scattered
+   fragments from an oblique camera. This continuous, depth-displaced cliff
+   surface supplies the missing large-scale body. The Webb RGB remains the
+   surface color; the registered guide controls silhouette and displacement,
+   while all line-of-sight thickness remains explicitly interpretive. */
+function makeContinuousCliffBackbone(scope, photo, depth, parent){
+  const columns = TEX_TIER === 'low' ? 92 : 196;
+  const rows = Math.max(24, Math.round(columns / WEBB_ASPECT));
+  const geometry = scope.own(new THREE.PlaneGeometry(
+    62 * WEBB_ASPECT, 62, columns, rows));
+  const positions = geometry.attributes.position;
+  const uvs = geometry.attributes.uv;
+  const samples = imagePixels(depth, columns + 1, rows + 1);
+  for (let index = 0; index < positions.count; index++){
+    const u = uvs.getX(index), v = uvs.getY(index);
+    const px = Math.min(columns, Math.max(0, Math.round(u * columns)));
+    const py = Math.min(rows, Math.max(0, Math.round((1 - v) * rows)));
+    const depthValue = pixelLuma(samples, (py * (columns + 1) + px) * 4);
+    const x = positions.getX(index), y = positions.getY(index);
+    const corrugation = (
+      Math.sin(x * .115 + y * .071) * 1.15 +
+      Math.sin(x * .31 - y * .18) * .42
+    ) * smoothstep(.18, .92, depthValue);
+    positions.setZ(index, (depthValue - .46) * 42 + corrugation);
+  }
+  positions.needsUpdate = true;
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+
+  const sourceMap = scope.own(new THREE.Texture(photo));
+  sourceMap.colorSpace = THREE.SRGBColorSpace;
+  sourceMap.anisotropy = TEX_TIER === 'low' ? 2 : 6;
+  sourceMap.needsUpdate = true;
+  const silhouetteMap = scope.own(new THREE.Texture(depth));
+  silhouetteMap.minFilter = THREE.LinearFilter;
+  silhouetteMap.magFilter = THREE.LinearFilter;
+  silhouetteMap.needsUpdate = true;
+  const material = scope.own(new THREE.MeshStandardMaterial({
+    name: 'Carina.ContinuousWebbCliffBackboneMaterial',
+    map: sourceMap,
+    alphaMap: silhouetteMap,
+    alphaTest: .11,
+    transparent: true,
+    opacity: 0,
+    depthWrite: true,
+    side: THREE.DoubleSide,
+    roughness: .86,
+    metalness: 0,
+    emissive: 0x3d2438,
+    emissiveMap: sourceMap,
+    emissiveIntensity: .34,
+  }));
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.name = 'continuous-source-depth-cosmic-cliffs-volume';
+  mesh.renderOrder = -1;
+  mesh.visible = false;
+  mesh.userData.interpretiveDepth = true;
+  mesh.userData.continuousHeroSurface = true;
+  parent.add(mesh);
+  return mesh;
+}
+
 function makePhotoDerivedGeometry(scope, photo, depth, softMap, webbHolder, futureHolder){
   const tracker = makeReliefTracker(scope);
   const reliefScale = PHOTO_WIDTH/(62*WEBB_ASPECT);
@@ -1559,6 +1626,8 @@ function makePhotoDerivedGeometry(scope, photo, depth, softMap, webbHolder, futu
   webbReliefRoot.name = 'webb-source-depth-relief-root';
   webbReliefRoot.scale.set(reliefScale,reliefScale,1);
   webbHolder.add(webbReliefRoot);
+  const backbone = makeContinuousCliffBackbone(
+    scope, photo, depth, webbReliefRoot);
   const webbReveal = { value: 0 };
   const webbRelief = buildPhotoRelief({
     parent: webbReliefRoot,
@@ -1623,6 +1692,7 @@ function makePhotoDerivedGeometry(scope, photo, depth, softMap, webbHolder, futu
     webbReveal,
     futureRelief,
     futureReveal,
+    backbone,
     jet,
     alignedStars: alignedStars.points,
   };
@@ -1749,6 +1819,7 @@ export function buildCarinaFeatured(){
     ['hubble-panorama', CARINA_STATES.HUBBLE],
     ['webb', CARINA_STATES.WEBB],
     ['webb-cliffs', CARINA_STATES.WEBB],
+    ['webb-cliffs-model', CARINA_STATES.WEBB],
     ['future', CARINA_STATES.FUTURE],
     ['future-erosion', CARINA_STATES.FUTURE],
   ]);
@@ -1768,7 +1839,7 @@ export function buildCarinaFeatured(){
   group.userData.genericSoftClouds = false;
   group.userData.genericPointClouds = false;
   group.userData.webbMorphology = {
-    source: 'Exact Webb plate head-on; indexed source/depth triangle relief and registered stellar sources off-axis.',
+    source: 'Exact Webb plate head-on; continuous displaced cliff body, indexed fine-detail relief, and registered stellar sources off-axis.',
     cavity: 'The ridge represents the near wall of the Gum 31 cavity carved by NGC 3324.',
     streamers: 'Broken relief facets trace the irradiated lip and photoevaporating structure; no generic gas or dust point clouds.',
     jet: 'The prominent upper-right outflow is retained by its source/depth relief pixels; no diagrammatic tube is overlaid.',
@@ -1824,6 +1895,9 @@ export function buildCarinaFeatured(){
         const derived = webb.photoDerived;
         if (derived){
           const reveal = 1 - headOn;
+          derived.backbone.material.opacity = .92 * reveal;
+          derived.backbone.scale.z = .16 + reveal * .84;
+          derived.backbone.visible = reveal > .004;
           derived.webbReveal.value = reveal;
           derived.webbRelief.update(reveal);
           for (const material of derived.jet.userData.materials)
