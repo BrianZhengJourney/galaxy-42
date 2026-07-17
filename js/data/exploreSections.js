@@ -3,7 +3,21 @@
    the smaller set whose interactive renderers meet the current fidelity bar. */
 
 function card(id, badges, imagePosition = 'center'){
-  return Object.freeze({ id, badges: Object.freeze([...badges]), imagePosition });
+  return Object.freeze({
+    id, kind: 'landmark', badges: Object.freeze([...badges]), imagePosition,
+  });
+}
+
+function system(id, target, name, designation, badges, coverFile){
+  return Object.freeze({
+    id,
+    kind: 'system',
+    target,
+    name,
+    designation,
+    badges: Object.freeze([...badges]),
+    coverFile,
+  });
 }
 
 function section(id, label, kicker, intro, color, items){
@@ -14,6 +28,27 @@ function section(id, label, kicker, intro, color, items){
 }
 
 export const EXPLORE_SECTIONS = Object.freeze([
+  section(
+    'world-systems',
+    'WORLD SYSTEMS',
+    'PLANETS NEAR & FAR',
+    'Drop into real planetary systems—from our eight-world home to compact red-dwarf families, a pulsar’s survivor worlds, and the first hot Jupiter.',
+    '#79e6c4',
+    [
+      system('system-sol', 'SOL', 'SOL', '8 PLANETS · OUR HOME SYSTEM',
+        ['LIVE ORBITS', 'WORLDS THROUGH TIME'], 'images/systems/sol.png'),
+      system('system-trappist-1', 'TRAPPIST-1', 'TRAPPIST-1', '7 EARTH-SIZED WORLDS',
+        ['CONFIRMED SYSTEM', 'TRANSIT PHOTOMETER'], 'images/systems/trappist-1.png'),
+      system('system-proxima-centauri', 'PROXIMA CENTAURI', 'PROXIMA CENTAURI', '2 CONFIRMED WORLDS · 4.24 LY',
+        ['CLOSEST STAR', 'CONFIRMED SYSTEM'], 'images/systems/proxima-centauri.png'),
+      system('system-kepler-186', 'KEPLER-186', 'KEPLER-186', '5 KNOWN WORLDS · KEPLER-186 f',
+        ['CONFIRMED SYSTEM', 'EARTH-SIZE OUTER WORLD'], 'images/systems/kepler-186.png'),
+      system('system-psr-b1257-12', 'PSR B1257+12', 'PSR B1257+12', '3 WORLDS AROUND A PULSAR',
+        ['FIRST EXOPLANETS', 'PULSAR SYSTEM'], 'images/systems/psr-b1257-12.png'),
+      system('system-51-pegasi', '51 PEGASI', '51 PEGASI', '51 PEGASI b · 4.23-DAY ORBIT',
+        ['FIRST SUN-LIKE HOST', 'HOT JUPITER'], 'images/systems/51-pegasi.png'),
+    ],
+  ),
   section(
     'nebulae',
     'NEBULAE',
@@ -71,5 +106,13 @@ export const EXPLORE_SECTIONS = Object.freeze([
 ]);
 
 export const EXPLORE_LANDMARK_IDS = Object.freeze(
-  EXPLORE_SECTIONS.flatMap(sectionRecord => sectionRecord.items.map(item => item.id)),
+  EXPLORE_SECTIONS.flatMap(sectionRecord => sectionRecord.items)
+    .filter(item => item.kind === 'landmark')
+    .map(item => item.id),
+);
+
+export const EXPLORE_SYSTEM_TARGETS = Object.freeze(
+  EXPLORE_SECTIONS.flatMap(sectionRecord => sectionRecord.items)
+    .filter(item => item.kind === 'system')
+    .map(item => item.target),
 );

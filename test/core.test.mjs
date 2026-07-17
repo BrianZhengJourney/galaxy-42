@@ -33,6 +33,7 @@ import { LANDMARK_DEPTH } from '../js/data/landmarkDepth.js';
 import {
   EXPLORE_LANDMARK_IDS,
   EXPLORE_SECTIONS,
+  EXPLORE_SYSTEM_TARGETS,
 } from '../js/data/exploreSections.js';
 import {
   SUPERNOVA_EXPERIENCE_IDS,
@@ -649,8 +650,8 @@ test('all curated nebulae and remnants share one observation-to-model presentati
   assert.equal(HIGH_FIDELITY_PRESENTATION_IDS.length, 13);
   assert.equal(new Set(HIGH_FIDELITY_PRESENTATION_IDS).size, 13);
   assert.deepEqual(Object.keys(OBSERVATION_MODEL_PRESENTATION_CONFIGS).sort(),
-    [...HIGH_FIDELITY_PRESENTATION_IDS, 'crab-nebula'].sort(),
-    'the direct Crab route may alias the curated remnant without expanding Explore');
+    [...HIGH_FIDELITY_PRESENTATION_IDS, 'crab-nebula', 'pale-blue-dot'].sort(),
+    'the direct Crab alias and mission presentation are the only non-list additions');
 
   const catalog = new Map(LANDMARKS.map(entry => [entry.id, entry]));
   for (const id of HIGH_FIDELITY_PRESENTATION_IDS){
@@ -716,12 +717,35 @@ test('all curated nebulae and remnants share one observation-to-model presentati
   assert.equal(directCrab.entrySequence.modelMomentId, 'crab-pulsar');
   assert.deepEqual(directCrab.viewModes.map(mode => mode.id),
     ['split', 'observation', 'model']);
+
+  const paleBlueDot = landmarkExperience(catalog.get('pale-blue-dot'));
+  assert.equal(paleBlueDot.defaultMoment, 'voyager-launch');
+  assert.deepEqual(paleBlueDot.viewModes.map(mode => mode.id),
+    ['split', 'observation', 'model']);
+  assert.equal(paleBlueDot.entrySequence.observationMomentId, 'pale-reprocessed');
+  assert.equal(paleBlueDot.entrySequence.modelMomentId, 'voyager-launch');
 });
 
 test('Explore exposes only curated, unique, model-led identities', async () => {
   assert.deepEqual(EXPLORE_SECTIONS.map(section => section.id), [
-    'nebulae', 'black-holes', 'remnants', 'missions',
+    'world-systems', 'nebulae', 'black-holes', 'remnants', 'missions',
   ]);
+  assert.deepEqual([...EXPLORE_SYSTEM_TARGETS], [
+    'SOL', 'TRAPPIST-1', 'PROXIMA CENTAURI', 'KEPLER-186',
+    'PSR B1257+12', '51 PEGASI',
+  ]);
+  assert.equal(new Set(EXPLORE_SYSTEM_TARGETS).size, EXPLORE_SYSTEM_TARGETS.length);
+  for (const target of EXPLORE_SYSTEM_TARGETS)
+    assert.ok(STAR_CATALOG.some(entry => entry.name === target), target + ': missing system target');
+  const systems = EXPLORE_SECTIONS.find(section => section.id === 'world-systems').items;
+  assert.equal(new Set(systems.map(item => item.coverFile)).size, systems.length,
+    'every system needs its own static cover');
+  for (const item of systems){
+    assert.match(item.coverFile, /^images\/systems\/[a-z0-9-]+\.png$/,
+      item.target + ': invalid system cover path');
+    const cover = await readFile(new URL('../' + item.coverFile, import.meta.url));
+    assert.ok(cover.byteLength > 10000, item.target + ': missing or empty system cover');
+  }
   assert.equal(EXPLORE_LANDMARK_IDS.length, 18);
   assert.equal(new Set(EXPLORE_LANDMARK_IDS).size, EXPLORE_LANDMARK_IDS.length);
   const expected = [
@@ -892,10 +916,11 @@ test('landmark HUD removes repeated copy without hiding detail or provenance', a
 });
 
 test('Explore presents image-led cards while retaining accessible catalog detail', async () => {
-  const [markup, css, hud] = await Promise.all([
+  const [markup, css, hud, main] = await Promise.all([
     readFile(new URL('../index.html', import.meta.url), 'utf8'),
     readFile(new URL('../css/main.css', import.meta.url), 'utf8'),
     readFile(new URL('../js/ui/hud.js', import.meta.url), 'utf8'),
+    readFile(new URL('../js/main.js', import.meta.url), 'utf8'),
   ]);
 
   assert.match(markup, /id="lmIntro" class="dsp-sr-only"/,
@@ -920,6 +945,16 @@ test('Explore presents image-led cards while retaining accessible catalog detail
     'hidden card metadata must be folded into the accessible card name');
   assert.match(hud, /document\.body\.classList\.toggle\('explore-open', visible\)/,
     'dialog visibility must own the page-chrome suppression state');
+  assert.match(hud,
+    /record\.kind === 'landmark'[\s\S]{0,120}?record\.coverFile \? \{ file: record\.coverFile \}/,
+    'World Systems cards should use their own static cover images');
+  assert.doesNotMatch(css, /lm-system-spin|lm-system-orbit/,
+    'World Systems covers should remain static');
+  assert.match(hud, /item\.dataset\.system = record\.target/,
+    'system cards need a stable destination identity');
+  assert.match(main,
+    /record\.kind === 'system'[\s\S]{0,140}?setLandmarksVisible\(false\)[\s\S]{0,100}?enterSystem\(record\.entry\.rec, true\)/,
+    'choosing a system must close Explore before entering the live system');
 });
 
 test('black-hole observation chapters preserve a persistent 3D hero', async () => {
@@ -1145,7 +1180,7 @@ test('shared nebula runtime contains no generic soft-cloud renderer', async () =
     'photo/depth reconstruction should use crisp surfaces');
 });
 
-test('retained shared nebula heroes use continuous procedural surfaces, not photo fragments', async () => {
+test('retained shared nebula heroes keep continuous sculpts and explicit source-context exceptions', async () => {
   const [collection, sculptA, sculptB, primitives] = await Promise.all([
     readFile(new URL('../js/procgen/featured/nebulaCollection.js', import.meta.url), 'utf8'),
     readFile(new URL('../js/procgen/featured/nebulaSculptA.js', import.meta.url), 'utf8'),
@@ -1158,6 +1193,10 @@ test('retained shared nebula heroes use continuous procedural surfaces, not phot
   ]) assert.match(collection, new RegExp(`['"]${family}['"]`), family);
   assert.match(collection, /if\s*\(!continuousHero\s*&&\s*!photoRelief\)/,
     'continuous heroes must not instantiate source-depth relief fragments');
+  assert.match(collection,
+    /SOURCE_CONTEXT_HERO_IDS\s*=\s*new Set\(\['horsehead-nebula', 'veil-nebula'\]\)/,
+    'only the requested ridge and shock-sheet heroes may retain low-frequency source context');
+  assert.match(collection, /low-frequency-source-context-only; no depth claim/);
   assert.match(collection, /projector appears only in the explicit observation state/);
   assert.match(collection, /presentationState === 'observation'/);
   assert.match(collection, /createObservationDock\(\{[\s\S]{0,180}?Horsehead\.SourceComparison/,
@@ -1174,6 +1213,9 @@ test('retained shared nebula heroes use continuous procedural surfaces, not phot
   assert.match(sculptA, /lagoon-main-foreground-dust-river/);
   assert.match(sculptB, /cat-eye-continuous-bubble/);
   assert.match(sculptB, /trifid-occluding-dust-lane/);
+  assert.match(sculptB, /veil-cooling-sheet/);
+  assert.match(sculptB, /veil-braided-shock-strand/);
+  assert.match(sculptB, /layered-volumetric-shock-sheet/);
   assert.match(primitives, /new THREE\.BufferGeometry\s*\(/);
   assert.match(primitives, /continuousNebulaSurface\s*=\s*true/);
   assert.match(primitives, /opacityUniform\s*=\s*uniforms\.uOpacity/);
@@ -1201,6 +1243,9 @@ test('dedicated and shared nebula sculpts contain no active wire or blob layers'
   assert.doesNotMatch(carina,
     /thin-ionization-ridges|holder\.add\(mesh,\s*surfels|new THREE\.(?:TubeGeometry|TorusGeometry)/);
   assert.match(carina, /hubble-source-derived-relief-root/);
+  assert.match(carina, /continuous-source-depth-cosmic-cliffs-volume/);
+  assert.match(carina, /continuousHeroSurface/);
+  assert.match(carina, /backbone\.material\.opacity\s*=\s*\.92\s*\*\s*reveal/);
   assert.match(carina, /alphaMap:\s*edgeMask/,
     'Carina archive plates must feather their rectangular edges');
   assert.match(carina, /eta\.uv\.material\.opacity\s*=\s*headOn/);
@@ -1335,7 +1380,8 @@ test('dedicated multi-state exhibits route every milestone to a unique state', (
   };
   for (const id of ['carina-nebula', 'crab-nebula', 'm87-black-hole-image', 'pale-blue-dot']){
     const moments = LANDMARK_EXPERIENCES[id].moments;
-    assert.equal(moments.length, id === 'm87-black-hole-image' ? 7 : 6, id);
+    assert.equal(moments.length,
+      id === 'm87-black-hole-image' || id === 'carina-nebula' ? 7 : 6, id);
     const states = moments.map(moment => moment.visual.state);
     assert.ok(states.every(Boolean), id + ': missing state');
     assert.equal(new Set(states).size, moments.length, id + ': duplicate state');

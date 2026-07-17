@@ -20,8 +20,8 @@ const PILLARS_SPLIT_COPY = Object.freeze({
 });
 
 const CARINA_SPLIT_COPY = Object.freeze({
-  title: 'TWO CARINA VIEWS, KEPT DISTINCT',
-  text: 'The Webb Cosmic Cliffs observation remains a flat source image beside the broader Carina reconstruction. They show different fields, so this is a contextual comparison—not a registered-depth view or a pixel-aligned morph.',
+  title: 'THE WEBB CLIFFS BESIDE THEIR 3D INTERPRETATION',
+  text: 'The exact Webb Cosmic Cliffs observation remains flat beside a source- and depth-guided relief of the same field. Its off-axis depth is interpretive—not measured tomography from the image.',
 });
 
 const CRAB_SPLIT_COPY = Object.freeze({
@@ -37,6 +37,11 @@ const SN1987A_SPLIT_COPY = Object.freeze({
 const CASA_SPLIT_COPY = Object.freeze({
   title: 'THE WEBB REMNANT BESIDE ITS 3D INTERPRETATION',
   text: 'The Webb MIRI observation remains a flat, assigned-color source image beside the scientific remnant model. Element families and line-of-sight knot placement in the model remain interpretive.',
+});
+
+const PALE_BLUE_DOT_SPLIT_COPY = Object.freeze({
+  title: 'THE PORTRAIT BESIDE THE SPACECRAFT',
+  text: 'Voyager’s 2020 reprocessing remains a flat view of the 1990 source frames beside the spacecraft visualization. The pairing connects instrument and image; it is not a shared-scale spatial reconstruction.',
 });
 
 function config(observationMomentId, modelMomentId, splitMomentId,
@@ -77,9 +82,9 @@ export const OBSERVATION_MODEL_PRESENTATION_CONFIGS = Object.freeze({
     'orion-nebula-observation', 'orion-nebula-model', 'orion-nebula-split',
   ),
   'carina-nebula': config(
-    'carina-webb', 'carina-ignites', 'carina-nebula-split',
+    'carina-webb', 'carina-webb-model', 'carina-nebula-split',
     CARINA_SPLIT_COPY,
-    'The opening image overlay is only a presentation transition. Webb’s Cosmic Cliffs and the broader Carina reconstruction are different fields, so the transition is not registered depth or a pixel-aligned morph.',
+    'The Webb relief uses a registered source/depth guide, but its off-axis geometry remains interpretive rather than recovered tomography.',
   ),
   'horsehead-nebula': config(
     'horsehead-nebula-observation', 'horsehead-nebula-model', 'horsehead-nebula-split',
@@ -117,6 +122,10 @@ export const OBSERVATION_MODEL_PRESENTATION_CONFIGS = Object.freeze({
   ),
   'veil-nebula': config(
     'veil-nebula-observation', 'veil-nebula-model', 'veil-nebula-split',
+  ),
+  'pale-blue-dot': config(
+    'pale-reprocessed', 'voyager-launch', 'pale-blue-dot-split',
+    PALE_BLUE_DOT_SPLIT_COPY,
   ),
 });
 

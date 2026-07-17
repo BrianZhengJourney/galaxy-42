@@ -201,17 +201,23 @@ export class Hud {
         const item = document.createElement('button');
         item.type = 'button';
         item.className = 'lm-item';
-        item.dataset.landmark = e.id;
+        item.dataset.destination = e.id;
+        if (record.kind === 'landmark') item.dataset.landmark = e.id;
+        if (record.kind === 'system') item.dataset.system = record.target;
         const accessibleDetails = [e.designation, ...record.badges].filter(Boolean).join(' · ');
         item.setAttribute('aria-label', 'Explore ' + e.name +
           (accessibleDetails ? ' · ' + accessibleDetails : ''));
-        const img = landmarkImage(e.id);
+        const img = record.kind === 'landmark'
+          ? landmarkImage(e.id)
+          : record.coverFile ? { file: record.coverFile } : null;
         if (img){
           item.classList.add('has-image');
           const imageURL = new URL(img.coverFile || img.file, document.baseURI).href;
           item.style.setProperty('--lm-image', `url("${imageURL}")`);
           item.style.setProperty('--lm-image-position', record.imagePosition || 'center');
         }
+
+        if (record.kind === 'system') item.classList.add('system-card');
 
         const badges = document.createElement('span');
         badges.className = 'lm-badges';
@@ -227,7 +233,7 @@ export class Hud {
         s.textContent = e.designation;
         copy.appendChild(n); copy.appendChild(s);
         item.appendChild(badges); item.appendChild(copy);
-        item.addEventListener('click', () => this._landmarkPick(e));
+        item.addEventListener('click', () => this._landmarkPick(record));
         grid.appendChild(item);
       }
       sectionElement.appendChild(grid);

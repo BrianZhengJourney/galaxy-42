@@ -81,7 +81,7 @@ export const LANDMARK_EXPERIENCES = {
   },
   'carina-nebula': {
     summary: 'A stellar nursery explored through separate fields, epochs and an observation-derived 3D model.',
-    defaultMoment: 'carina-ignites',
+    defaultMoment: 'carina-webb-model',
     note: 'Hubble’s wide Carina mosaic, Webb’s Cosmic Cliffs and the Eta Carinae close-up are separate fields, never an aligned crossfade. Webb’s orbit view uses inferred depth; the Homunculus is a spectroscopy-derived shape model. Reconstructions and the future concept are not observations.',
     moments: [
       {
@@ -118,6 +118,13 @@ export const LANDMARK_EXPERIENCES = {
         text: 'NIRCam and MIRI uncover young stars along the Cosmic Cliffs; orbiting reveals a depth-assisted visualization.',
         source: 'https://science.nasa.gov/missions/webb/nasas-webb-reveals-cosmic-cliffs-glittering-landscape-of-star-birth/',
         visual: { state: 'webb-cliffs', theta: 0, phi: Math.PI / 2, distance: 1 },
+      },
+      {
+        id: 'carina-webb-model', date: 'CURRENT INTERPRETATION', kind: 'SCIENTIFIC 3D MODEL',
+        title: 'ORBIT THE COSMIC CLIFFS',
+        text: 'A registered depth guide lifts the Webb field into an orbitable relief while preserving its irradiated ridge, stellar sources, and fine dust structure.',
+        source: 'https://science.nasa.gov/missions/webb/nasas-webb-reveals-cosmic-cliffs-glittering-landscape-of-star-birth/',
+        visual: { state: 'webb-cliffs-model', theta: .72, phi: 1.18, distance: .90 },
       },
       {
         id: 'carina-clears', date: 'FUTURE · NO FIXED DATE', kind: 'CONCEPT / MODEL',
@@ -403,7 +410,7 @@ export const LANDMARK_EXPERIENCES = {
   },
   'pale-blue-dot': {
     summary: 'Earth reduced to a fraction of a pixel across six billion kilometers.',
-    defaultMoment: 'pale-earth',
+    defaultMoment: 'voyager-launch',
     note: 'Earth spans about 0.12 camera pixel. The 2020 view is a false-color reprocessing of the same 1990 frames with no added resolved detail; rays and background specks are camera scatter and magnification artifacts, not stars.',
     moments: [
       {
